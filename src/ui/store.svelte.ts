@@ -56,6 +56,7 @@ export function startLoop(): void {
   started = true
   const speedParam = Number(params().get('speed') ?? 1)
   const speed = Number.isFinite(speedParam) && speedParam > 0 ? speedParam : 1
+  document.getElementById('app')?.style.setProperty('--tick', `${Math.round(1000 / speed)}ms`)
   setInterval(() => {
     if (!game.paused && game.state.status === 'running') {
       tick(game.state)

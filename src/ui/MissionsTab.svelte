@@ -21,7 +21,8 @@
 </script>
 
 {#each game.state.missions as mission (mission.id)}
-  <div class="card" class:hot={mission.threatBar >= DANGER_THREAT}>
+  {#key mission.threatLevel}
+  <div class="card" class:hot={mission.threatBar >= DANGER_THREAT} class:flash={mission.threatLevel > 0}>
     <div class="row">
       <strong>{'★'.repeat(mission.rating)} {mission.environment}</strong>
       <span class="dim">{mission.payout}cr · threat lv {mission.threatLevel}</span>
@@ -68,6 +69,7 @@
       {/each}
     {/if}
   </div>
+  {/key}
 {/each}
 
 {#if game.state.missions.length === 0}

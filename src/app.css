@@ -12,7 +12,7 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--text); }
-#app { display: flex; flex-direction: column; height: 100dvh; max-width: 480px; margin: 0 auto; }
+#app { display: flex; flex-direction: column; height: 100dvh; max-width: 480px; margin: 0 auto; --tick: 1000ms; }
 header { display: flex; gap: 0.75rem; align-items: center; padding: 0.6rem 0.8rem; background: var(--panel); border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
 header .cash { color: var(--accent); font-weight: 700; }
 header .loan { color: var(--dim); flex: 1; }
@@ -24,8 +24,18 @@ nav button.active { color: var(--accent); font-weight: 700; }
 .danger-badge { position: absolute; top: 6px; right: 12%; background: var(--danger); color: #fff; border-radius: 999px; font-size: 0.65rem; padding: 0 5px; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 0.7rem; margin-bottom: 0.7rem; }
 .bar { height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden; margin: 0.3rem 0; }
-.bar > div { height: 100%; }
+.bar > div { height: 100%; transition: width var(--tick) linear; }
 button.action { background: var(--accent); border: none; color: #1a1a1a; font-weight: 700; border-radius: 6px; padding: 0.45rem 0.8rem; }
 button.ghost { background: none; border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 0.45rem 0.8rem; }
 button:disabled { opacity: 0.4; }
 .dim { color: var(--dim); font-size: 0.85rem; }
+
+@keyframes flash {
+  0% { border-color: var(--danger); box-shadow: 0 0 10px rgba(192, 80, 77, 0.6); }
+  100% { border-color: var(--line); box-shadow: none; }
+}
+.card.flash { animation: flash calc(var(--tick) * 1.5) ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .bar > div { transition: none; }
+  .card.flash { animation: none; }
+}
