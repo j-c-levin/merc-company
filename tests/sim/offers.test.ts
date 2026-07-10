@@ -4,7 +4,7 @@ import { seatOffer, rejectOffer, hire, dispatch, idleMercIds } from '../../src/s
 import type { GameState, Offer } from '../../src/sim/types'
 import { OFFER_TTL_MAX, STARTING_SEATS } from '../../src/sim/balance'
 import { createRng } from '../../src/sim/rng'
-import { TIMER_KEYS, unlockedTimers, baseInterval, arrivalInterval } from '../../src/sim/offers'
+import { TIMER_KEYS, unlockedTimers, baseInterval, arrivalInterval, creditHeld, pumpOffers } from '../../src/sim/offers'
 import { JOB_TIERS, CANDIDATE_ARRIVAL, REP_RAMP, ARRIVAL_JITTER } from '../../src/sim/balance'
 
 function jobOffer(state: GameState, rating = 1): Offer {
@@ -166,5 +166,96 @@ describe('arrivalInterval', () => {
       expect(v).toBeGreaterThanOrEqual(lo)
       expect(v).toBeLessThanOrEqual(hi)
     }
+  })
+})
+
+/** Fresh state with the pump fields empty and reputation set. */
+function pumpState(rep = 0): GameState {
+  const s = newRun(50)
+  s.reputation = rep
+  s.door = null
+  s.queue = []
+  s.timers = {}
+  return s
+}
+
+describe('pumpOffers', () => {
+  it('schedules unlocked timers that hold credit; locked tiers never fire', () => {
+    const s = pumpState(0)
+    pumpOffers(s, createRng(1))
+    expect(s.timers.job1).toBeGreaterThan(s.tick)
+    expect(s.timers.candidate).toBeGreaterThan(s.tick)
+    expect(s.timers.job2).toBeUndefined()
+  })
+
+  it('crossing unlockRep initialises a tier with no special case', () => {
+    const s = pumpState(0)
+    pumpOffers(s, createRng(1))
+    s.reputation = 4
+    pumpOffers(s, createRng(2))
+    expect(s.timers.job2).toBeGreaterThan(s.tick)
+  })
+
+  it('fires a due timer into the door, stamping postedAt/expiresAt on promotion', () => {
+    const s = pumpState(0)
+    s.timers.job1 = s.tick
+    pumpOffers(s, createRng(2))
+    expect(s.door).not.toBeNull()
+    expect(s.door!.source).toBe('job1')
+    expect(s.door!.postedAt).toBe(s.tick)
+    expect(s.door!.expiresAt).toBeGreaterThan(s.tick)
+    expect(s.timers.job1).toBeUndefined() // credit spent: not rescheduled while in flight
+  })
+
+  it('never reschedules a timer whose offer is in flight', () => {
+    const s = pumpState(0)
+    s.timers.job1 = s.tick
+    const rng = createRng(3)
+    pumpOffers(s, rng)
+    expect(creditHeld(s, 'job1')).toBe(false)
+    pumpOffers(s, rng)
+    expect(s.timers.job1).toBeUndefined()
+  })
+
+  it('queued offers are frozen and promote FIFO by fire order', () => {
+    const s = pumpState(4)
+    s.timers.job1 = s.tick
+    s.timers.job2 = s.tick
+    const rng = createRng(4)
+    pumpOffers(s, rng)
+    expect(s.door!.source).toBe('job1') // TIMER_KEYS order: job1 fires first
+    expect(s.queue).toHaveLength(1)
+    expect(s.queue[0].source).toBe('job2')
+    expect(s.queue[0].expiresAt).toBe(0) // frozen while queued
+    s.door = null // simulate the player resolving the door offer
+    pumpOffers(s, rng)
+    expect(s.door!.source).toBe('job2')
+    expect(s.door!.expiresAt).toBeGreaterThan(s.tick)
+  })
+
+  it('expires the door offer and refills from the queue in the same pump', () => {
+    const s = pumpState(0)
+    s.door = {
+      id: 900, kind: 'job', source: 'job1', postedAt: 0, expiresAt: s.tick,
+      job: { rating: 1, environment: 'urban', payout: 150, work: 100 },
+    }
+    s.queue.push({
+      id: 901, kind: 'candidate', source: 'candidate', postedAt: 0, expiresAt: 0,
+      candidate: { id: 902, name: 'Rook Ash', klass: 'Scout', rank: 1, hp: 20, maxHp: 20, affinity: 'urban', hirePrice: 100 },
+    })
+    pumpOffers(s, createRng(7))
+    expect(s.door!.id).toBe(901)
+    expect(s.door!.expiresAt).toBeGreaterThan(s.tick)
+    expect(s.queue).toHaveLength(0)
+    expect(s.timers.job1).toBeGreaterThan(s.tick) // expiry returned job1's credit
+  })
+
+  it('a re-locked tier stops firing but keeps its due timer entry', () => {
+    const s = pumpState(4)
+    s.timers.job2 = s.tick
+    s.reputation = 0 // rep loss re-locks tier 2 before the pump runs
+    pumpOffers(s, createRng(8))
+    expect(s.door?.source ?? null).not.toBe('job2') // did not fire
+    expect(s.timers.job2).toBe(s.tick) // entry kept for when rep recovers
   })
 })
