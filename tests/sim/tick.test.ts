@@ -38,8 +38,9 @@ describe('newRun', () => {
 
 describe('mission tick — the spec worked example', () => {
   // 3★ urban mission; ranks 2,3,4 with two urban affinities → power 15.
-  // Work 300 → completes in exactly 20 ticks. Shortfall = 15−15 = 0 → threat
-  // is exactly the minimum (3/tick): deterministic despite the rng.
+  // Synthetic work 300 (fixture) → completes in exactly 20 ticks. Power 15 ≥
+  // threat-neutral 9 (3×rating) → shortfall ≤ 0 → threat is exactly the
+  // minimum (3/tick): deterministic despite the rng.
   function setup() {
     const s = newRun(1)
     s.mercs = []

@@ -2,8 +2,8 @@ export const SCHEMA_VERSION = 3
 export const CYCLE_LENGTH = 1500
 export const LOAN = 5000
 export const STARTING_CASH = 500
-export const WORK_PER_RATING = 100      // design anchor
-export const THREAT_BASE_PER_RATING = 5 // design anchor
+export const WORK_PER_RATING = 30       // design anchor
+export const THREAT_BASE_PER_RATING = 3 // design anchor
 export const THREAT_CAP = 18            // design anchor
 export const CONSEQUENCE_SPREAD = 2
 export const HP_BASE = 15
@@ -30,15 +30,17 @@ export const REP_PER_TIER = 4           // rep needed per extra offer/candidate 
 export const DANGER_THREAT = 12         // threatBar at/above this counts as a "hot" mission in the UI
 
 // ── offer pump ────────────────────────────────────────────────────────────
-// Per-tier arrival timers. `slow` is the interval (ticks) at unlockRep;
-// it ramps linearly to `fast` over REP_RAMP reputation and clamps there.
-export const JOB_TIERS: { rating: number; unlockRep: number; slow: number; fast: number }[] = [
-  { rating: 1, unlockRep: 0,  slow: 40,  fast: 26  },
-  { rating: 2, unlockRep: 4,  slow: 65,  fast: 40  },
-  { rating: 3, unlockRep: 8,  slow: 95,  fast: 58  },
-  { rating: 4, unlockRep: 12, slow: 130, fast: 80  },
-  { rating: 5, unlockRep: 16, slow: 170, fast: 105 },
+// Per-tier arrival timers. `atUnlock` is the interval (ticks) at unlockRep;
+// it ramps linearly to `ramped` over REP_RAMP reputation and clamps there.
+// Low tiers ramp SLOWER with reputation (interval grows) and high tiers ramp
+// FASTER, shifting the offer mix toward high-star jobs as the company ranks up.
+export const JOB_TIERS: { rating: number; unlockRep: number; atUnlock: number; ramped: number }[] = [
+  { rating: 1, unlockRep: 0,  atUnlock: 14,  ramped: 130 },
+  { rating: 2, unlockRep: 4,  atUnlock: 32,  ramped: 38  },
+  { rating: 3, unlockRep: 8,  atUnlock: 55,  ramped: 34  },
+  { rating: 4, unlockRep: 12, atUnlock: 80,  ramped: 44  },
+  { rating: 5, unlockRep: 16, atUnlock: 110, ramped: 55  },
 ]
-export const CANDIDATE_ARRIVAL = { slow: 60, fast: 45 }
+export const CANDIDATE_ARRIVAL = { atUnlock: 60, ramped: 45 }
 export const REP_RAMP = 16
 export const ARRIVAL_JITTER = 0.15
