@@ -205,27 +205,47 @@ describe('unlockedTimers', () => {
 })
 
 describe('baseInterval', () => {
-  it('starts at slow on unlock', () => {
-    expect(baseInterval('job1', 0)).toBe(JOB_TIERS[0].slow)
-    expect(baseInterval('job2', 4)).toBe(JOB_TIERS[1].slow)
-    expect(baseInterval('candidate', 0)).toBe(CANDIDATE_ARRIVAL.slow)
+  it('starts at atUnlock on unlock', () => {
+    expect(baseInterval('job1', 0)).toBe(JOB_TIERS[0].atUnlock)
+    expect(baseInterval('job2', 4)).toBe(JOB_TIERS[1].atUnlock)
+    expect(baseInterval('candidate', 0)).toBe(CANDIDATE_ARRIVAL.atUnlock)
   })
 
-  it('reaches fast after REP_RAMP rep past unlock and clamps there', () => {
-    expect(baseInterval('job1', REP_RAMP)).toBe(JOB_TIERS[0].fast)
-    expect(baseInterval('job1', 999)).toBe(JOB_TIERS[0].fast)
-    expect(baseInterval('job5', 999)).toBe(JOB_TIERS[4].fast)
-    expect(baseInterval('candidate', 999)).toBe(CANDIDATE_ARRIVAL.fast)
+  it('reaches ramped after REP_RAMP rep past unlock and clamps there', () => {
+    expect(baseInterval('job1', REP_RAMP)).toBe(JOB_TIERS[0].ramped)
+    expect(baseInterval('job1', 999)).toBe(JOB_TIERS[0].ramped)
+    expect(baseInterval('job5', 999)).toBe(JOB_TIERS[4].ramped)
+    expect(baseInterval('candidate', 999)).toBe(CANDIDATE_ARRIVAL.ramped)
   })
 
-  it('is monotonically non-increasing in reputation for every timer', () => {
+  it('moves each timer monotonically from atUnlock toward ramped, never past it', () => {
+    const rates = (key: (typeof TIMER_KEYS)[number]) =>
+      key === 'candidate'
+        ? { unlockRep: 0, ...CANDIDATE_ARRIVAL }
+        : JOB_TIERS[Number(key.slice(3)) - 1]
     for (const key of TIMER_KEYS) {
-      let prev = Infinity
-      for (let rep = 0; rep <= 40; rep++) {
+      const { unlockRep, atUnlock, ramped } = rates(key)
+      const dir = Math.sign(ramped - atUnlock)
+      let prev = atUnlock
+      for (let rep = unlockRep; rep <= unlockRep + REP_RAMP + 10; rep++) {
         const v = baseInterval(key, rep)
-        expect(v).toBeLessThanOrEqual(prev)
+        expect((v - prev) * dir).toBeGreaterThanOrEqual(0) // monotone toward ramped
+        expect(v).toBeGreaterThanOrEqual(Math.min(atUnlock, ramped))
+        expect(v).toBeLessThanOrEqual(Math.max(atUnlock, ramped))
         prev = v
       }
+      expect(baseInterval(key, unlockRep + REP_RAMP)).toBe(ramped)
+    }
+  })
+
+  it('shifts the mix with rank: 1★ fades out while 3★-5★ speed up', () => {
+    expect(baseInterval('job1', 40)).toBeGreaterThan(baseInterval('job1', 0))
+    for (const tier of [3, 4, 5]) {
+      const { unlockRep, atUnlock, ramped } = JOB_TIERS[tier - 1]
+      expect(ramped).toBeLessThan(atUnlock)
+      expect(baseInterval(`job${tier}` as TimerKey, unlockRep + REP_RAMP)).toBeLessThan(
+        baseInterval(`job${tier}` as TimerKey, unlockRep),
+      )
     }
   })
 })
@@ -233,8 +253,8 @@ describe('baseInterval', () => {
 describe('arrivalInterval', () => {
   it('applies bounded jitter around the base and never drops below 1', () => {
     const rng = createRng(1)
-    const lo = Math.floor(JOB_TIERS[0].slow * (1 - ARRIVAL_JITTER))
-    const hi = Math.ceil(JOB_TIERS[0].slow * (1 + ARRIVAL_JITTER))
+    const lo = Math.floor(JOB_TIERS[0].atUnlock * (1 - ARRIVAL_JITTER))
+    const hi = Math.ceil(JOB_TIERS[0].atUnlock * (1 + ARRIVAL_JITTER))
     for (let i = 0; i < 200; i++) {
       const v = arrivalInterval('job1', 0, rng)
       expect(Number.isInteger(v)).toBe(true)

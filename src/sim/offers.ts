@@ -7,7 +7,7 @@ import { generateJob, generateCandidate } from './content'
  *  fire low tier first, candidate last. Determinism depends on this order. */
 export const TIMER_KEYS: TimerKey[] = ['job1', 'job2', 'job3', 'job4', 'job5', 'candidate']
 
-function ratesFor(key: TimerKey): { unlockRep: number; slow: number; fast: number } {
+function ratesFor(key: TimerKey): { unlockRep: number; atUnlock: number; ramped: number } {
   if (key === 'candidate') return { unlockRep: 0, ...CANDIDATE_ARRIVAL }
   return JOB_TIERS[Number(key.slice(3)) - 1]
 }
@@ -16,11 +16,13 @@ export function unlockedTimers(reputation: number): TimerKey[] {
   return TIMER_KEYS.filter(key => reputation >= ratesFor(key).unlockRep)
 }
 
-/** Deterministic center of the arrival interval; jitter lives in arrivalInterval. */
+/** Deterministic center of the arrival interval; jitter lives in arrivalInterval.
+ *  Runs from `atUnlock` at unlockRep to `ramped` over REP_RAMP reputation —
+ *  downward for high tiers (more frequent), upward for tier 1 (fades out). */
 export function baseInterval(key: TimerKey, reputation: number): number {
-  const { unlockRep, slow, fast } = ratesFor(key)
+  const { unlockRep, atUnlock, ramped } = ratesFor(key)
   const t = Math.min(1, Math.max(0, (reputation - unlockRep) / REP_RAMP))
-  return slow + (fast - slow) * t
+  return atUnlock + (ramped - atUnlock) * t
 }
 
 export function arrivalInterval(key: TimerKey, reputation: number, rng: Rng): number {

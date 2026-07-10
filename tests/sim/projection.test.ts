@@ -10,18 +10,18 @@ function addMerc(state: GameState, rank: number, affinity: Merc['affinity']): Me
 }
 
 describe('project', () => {
-  it('matches the spec worked example (3★, power 15 → 20 ticks, 3 consequences)', () => {
+  it('matches the spec worked example (3★, power 15 → 6 ticks, 1 consequence)', () => {
     const s = newRun(1)
     s.mercs = []
     const a = addMerc(s, 2, 'urban'), b = addMerc(s, 3, 'rural'), c = addMerc(s, 4, 'urban')
     const p = project(s, [a.id, b.id, c.id], 3, 'urban')
     expect(p.power).toBe(15)
-    expect(p.shortfall).toBe(0)
-    expect(p.durationTicks).toBe(20)
-    // maxed team on a 3★: min == expected == max == floor(20×3/18) = 3
-    expect(p.minConsequences).toBe(3)
-    expect(p.expectedConsequences).toBe(3)
-    expect(p.maxConsequences).toBe(3)
+    expect(p.shortfall).toBe(3 * 3 - 15) // threat-neutral power is 3×rating
+    expect(p.durationTicks).toBe(6) // ceil(3×30 / 15)
+    // over-staffed team on a 3★: min == expected == max == floor(6×3/18) = 1
+    expect(p.minConsequences).toBe(1)
+    expect(p.expectedConsequences).toBe(1)
+    expect(p.maxConsequences).toBe(1)
   })
 
   it('widens the forecast when understaffed', () => {
@@ -29,8 +29,8 @@ describe('project', () => {
     s.mercs = []
     const a = addMerc(s, 2, 'forest') // rural 3★ job, no match: power 2
     const p = project(s, [a.id], 3, 'rural')
-    expect(p.shortfall).toBe(13)
-    expect(p.durationTicks).toBe(150)
+    expect(p.shortfall).toBe(7) // 3×3 − 2
+    expect(p.durationTicks).toBe(45) // ceil(3×30 / 2)
     expect(p.maxConsequences).toBeGreaterThan(p.expectedConsequences)
     expect(p.expectedConsequences).toBeGreaterThan(p.minConsequences)
   })
