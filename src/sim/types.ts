@@ -20,6 +20,8 @@ export interface JobDetails {
   work: number // rating × WORK_PER_RATING
 }
 
+export type TimerKey = 'job1' | 'job2' | 'job3' | 'job4' | 'job5' | 'candidate'
+
 export interface Offer {
   id: number
   kind: 'job' | 'candidate'

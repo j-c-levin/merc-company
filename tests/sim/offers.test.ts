@@ -3,6 +3,9 @@ import { newRun, tick } from '../../src/sim/tick'
 import { seatOffer, rejectOffer, hire, dispatch, idleMercIds } from '../../src/sim/actions'
 import type { GameState, Offer } from '../../src/sim/types'
 import { OFFER_TTL_MAX, STARTING_SEATS } from '../../src/sim/balance'
+import { createRng } from '../../src/sim/rng'
+import { TIMER_KEYS, unlockedTimers, baseInterval, arrivalInterval } from '../../src/sim/offers'
+import { JOB_TIERS, CANDIDATE_ARRIVAL, REP_RAMP, ARRIVAL_JITTER } from '../../src/sim/balance'
 
 function jobOffer(state: GameState, rating = 1): Offer {
   const o: Offer = {
@@ -111,5 +114,57 @@ describe('dispatch', () => {
     const s = newRun(19)
     const o = jobOffer(s, 1)
     expect(() => dispatch(s, o.id, [])).toThrow(/empty/i)
+  })
+})
+
+describe('unlockedTimers', () => {
+  it('starts with job1 and candidate only', () => {
+    expect(unlockedTimers(0)).toEqual(['job1', 'candidate'])
+  })
+
+  it('unlocks each job tier at its unlockRep', () => {
+    expect(unlockedTimers(3)).not.toContain('job2')
+    expect(unlockedTimers(4)).toContain('job2')
+    expect(unlockedTimers(16)).toEqual(TIMER_KEYS)
+  })
+})
+
+describe('baseInterval', () => {
+  it('starts at slow on unlock', () => {
+    expect(baseInterval('job1', 0)).toBe(JOB_TIERS[0].slow)
+    expect(baseInterval('job2', 4)).toBe(JOB_TIERS[1].slow)
+    expect(baseInterval('candidate', 0)).toBe(CANDIDATE_ARRIVAL.slow)
+  })
+
+  it('reaches fast after REP_RAMP rep past unlock and clamps there', () => {
+    expect(baseInterval('job1', REP_RAMP)).toBe(JOB_TIERS[0].fast)
+    expect(baseInterval('job1', 999)).toBe(JOB_TIERS[0].fast)
+    expect(baseInterval('job5', 999)).toBe(JOB_TIERS[4].fast)
+    expect(baseInterval('candidate', 999)).toBe(CANDIDATE_ARRIVAL.fast)
+  })
+
+  it('is monotonically non-increasing in reputation for every timer', () => {
+    for (const key of TIMER_KEYS) {
+      let prev = Infinity
+      for (let rep = 0; rep <= 40; rep++) {
+        const v = baseInterval(key, rep)
+        expect(v).toBeLessThanOrEqual(prev)
+        prev = v
+      }
+    }
+  })
+})
+
+describe('arrivalInterval', () => {
+  it('applies bounded jitter around the base and never drops below 1', () => {
+    const rng = createRng(1)
+    const lo = Math.floor(JOB_TIERS[0].slow * (1 - ARRIVAL_JITTER))
+    const hi = Math.ceil(JOB_TIERS[0].slow * (1 + ARRIVAL_JITTER))
+    for (let i = 0; i < 200; i++) {
+      const v = arrivalInterval('job1', 0, rng)
+      expect(Number.isInteger(v)).toBe(true)
+      expect(v).toBeGreaterThanOrEqual(lo)
+      expect(v).toBeLessThanOrEqual(hi)
+    }
   })
 })

@@ -31,3 +31,17 @@ export const HEAL_INTERVAL = 5          // idle mercs heal 1 hp every N ticks
 export const MEDBAY_PER_HP = 10         // instant heal price per missing hp
 export const REP_PER_TIER = 4           // rep needed per extra offer/candidate tier
 export const DANGER_THREAT = 12         // threatBar at/above this counts as a "hot" mission in the UI
+
+// ── offer pump ────────────────────────────────────────────────────────────
+// Per-tier arrival timers. `slow` is the interval (ticks) at unlockRep;
+// it ramps linearly to `fast` over REP_RAMP reputation and clamps there.
+export const JOB_TIERS: { rating: number; unlockRep: number; slow: number; fast: number }[] = [
+  { rating: 1, unlockRep: 0,  slow: 40,  fast: 26  },
+  { rating: 2, unlockRep: 4,  slow: 65,  fast: 40  },
+  { rating: 3, unlockRep: 8,  slow: 95,  fast: 58  },
+  { rating: 4, unlockRep: 12, slow: 130, fast: 80  },
+  { rating: 5, unlockRep: 16, slow: 170, fast: 105 },
+]
+export const CANDIDATE_ARRIVAL = { slow: 60, fast: 45 }
+export const REP_RAMP = 16
+export const ARRIVAL_JITTER = 0.15
