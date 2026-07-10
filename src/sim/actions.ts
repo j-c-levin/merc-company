@@ -1,4 +1,8 @@
 import type { GameState, Offer } from './types'
+import {
+  SLOT_PRICES, SEAT_PRICE, MAX_ROSTER_SLOTS, MAX_SEATS,
+  MEDBAY_PER_HP, STARTING_ROSTER_SLOTS,
+} from './balance'
 
 export function idleMercIds(state: GameState): number[] {
   const away = new Set<number>([
@@ -67,4 +71,36 @@ export function dispatch(state: GameState, offerId: number, mercIds: number[]): 
   }
   state.missions.push(mission)
   return mission.id
+}
+
+export function dismiss(state: GameState, mercId: number): void {
+  if (!idleMercIds(state).includes(mercId)) throw new Error('merc is not idle')
+  state.mercs = state.mercs.filter(m => m.id !== mercId)
+}
+
+export function buySlot(state: GameState): void {
+  if (state.rosterSlots >= MAX_ROSTER_SLOTS) throw new Error('roster slots at max')
+  const price = SLOT_PRICES[state.rosterSlots - STARTING_ROSTER_SLOTS]
+  if (state.cash < price) throw new Error('cannot afford slot')
+  state.cash -= price
+  state.rosterSlots++
+}
+
+export function buySeat(state: GameState): void {
+  if (state.waitingSeats >= MAX_SEATS) throw new Error('seats at max')
+  if (state.cash < SEAT_PRICE) throw new Error('cannot afford seat')
+  state.cash -= SEAT_PRICE
+  state.waitingSeats++
+}
+
+export function medbayHeal(state: GameState, mercId: number): number {
+  if (!idleMercIds(state).includes(mercId)) throw new Error('merc is not idle')
+  const merc = state.mercs.find(m => m.id === mercId)!
+  const missing = merc.maxHp - merc.hp
+  if (missing <= 0) throw new Error('already at full hp')
+  const price = missing * MEDBAY_PER_HP
+  if (state.cash < price) throw new Error('cannot afford heal')
+  state.cash -= price
+  merc.hp = merc.maxHp
+  return price
 }
