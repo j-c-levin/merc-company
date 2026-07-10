@@ -1,89 +1,46 @@
-<script>
-  import svelteLogo from './assets/svelte.svg'
-  import viteLogo from './assets/vite.svg'
-  import heroImg from './assets/hero.png'
-  import Counter from './lib/Counter.svelte'
+<script lang="ts">
+  import { game, startLoop, togglePause } from './ui/store.svelte'
+  import { CYCLE_LENGTH } from './sim/balance'
+  import RosterTab from './ui/RosterTab.svelte'
+  import JobsTab from './ui/JobsTab.svelte'
+  import MissionsTab from './ui/MissionsTab.svelte'
+  import EndScreen from './ui/EndScreen.svelte'
+
+  let tab: 'roster' | 'jobs' | 'missions' = $state('jobs')
+  startLoop()
+
+  const ticksLeft = $derived(Math.max(0, CYCLE_LENGTH - game.state.tick))
+  const clock = $derived(
+    `${Math.floor(ticksLeft / 60)}:${String(ticksLeft % 60).padStart(2, '0')}`,
+  )
+  const dangerCount = $derived(game.state.missions.filter(m => m.threatBar >= 12).length)
 </script>
 
-<section id="center">
-  <div class="hero">
-    <img src={heroImg} class="base" width="170" height="179" alt="" />
-    <img src={svelteLogo} class="framework" alt="Svelte logo" />
-    <img src={viteLogo} class="vite" alt="Vite logo" />
-  </div>
-  <div>
-    <h1>Get started</h1>
-    <p>Edit <code>src/App.svelte</code> and save to test <code>HMR</code></p>
-  </div>
-  <Counter />
-</section>
+<header>
+  <span class="cash">{game.state.cash}cr</span>
+  <span class="loan">loan {game.state.loan}cr · {clock}</span>
+  <span class="rep">rep {game.state.reputation}</span>
+  <button class="pause" onclick={togglePause}>{game.paused ? '▶' : '⏸'}</button>
+</header>
 
-<div class="ticks"></div>
+<main>
+  {#if tab === 'roster'}<RosterTab />{/if}
+  {#if tab === 'jobs'}<JobsTab />{/if}
+  {#if tab === 'missions'}<MissionsTab />{/if}
+</main>
 
-<section id="next-steps">
-  <div id="docs">
-    <svg class="icon" role="presentation" aria-hidden="true">
-      <use href="/icons.svg#documentation-icon"></use>
-    </svg>
-    <h2>Documentation</h2>
-    <p>Your questions, answered</p>
-    <ul>
-      <li>
-        <a href="https://vite.dev/" target="_blank" rel="noreferrer">
-          <img class="logo" src={viteLogo} alt="" />
-          Explore Vite
-        </a>
-      </li>
-      <li>
-        <a href="https://svelte.dev/" target="_blank" rel="noreferrer">
-          <img class="button-icon" src={svelteLogo} alt="" />
-          Learn more
-        </a>
-      </li>
-    </ul>
-  </div>
-  <div id="social">
-    <svg class="icon" role="presentation" aria-hidden="true">
-      <use href="/icons.svg#social-icon"></use>
-    </svg>
-    <h2>Connect with us</h2>
-    <p>Join the Vite community</p>
-    <ul>
-      <li>
-        <a href="https://github.com/vitejs/vite" target="_blank" rel="noreferrer">
-          <svg class="button-icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#github-icon"></use>
-          </svg>
-          GitHub
-        </a>
-      </li>
-      <li>
-        <a href="https://chat.vite.dev/" target="_blank" rel="noreferrer">
-          <svg class="button-icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#discord-icon"></use>
-          </svg>
-          Discord
-        </a>
-      </li>
-      <li>
-        <a href="https://x.com/vite_js" target="_blank" rel="noreferrer">
-          <svg class="button-icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#x-icon"></use>
-          </svg>
-          X.com
-        </a>
-      </li>
-      <li>
-        <a href="https://bsky.app/profile/vite.dev" target="_blank" rel="noreferrer">
-          <svg class="button-icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#bluesky-icon"></use>
-          </svg>
-          Bluesky
-        </a>
-      </li>
-    </ul>
-  </div>
-</section>
+<nav>
+  <button class:active={tab === 'roster'} onclick={() => (tab = 'roster')}>
+    Roster ({game.state.mercs.length}/{game.state.rosterSlots})
+  </button>
+  <button class:active={tab === 'jobs'} onclick={() => (tab = 'jobs')}>
+    Jobs ({game.state.offers.length + game.state.seated.length})
+  </button>
+  <button class:active={tab === 'missions'} onclick={() => (tab = 'missions')}>
+    Missions ({game.state.missions.length}){#if dangerCount > 0}<span class="danger-badge">{dangerCount}</span>{/if}
+  </button>
+</nav>
 
-<div class="ticks"></div>
-<section id="spacer"></section>
+{#if game.state.status !== 'running'}
+  <EndScreen />
+{/if}
