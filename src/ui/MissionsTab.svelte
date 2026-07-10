@@ -18,11 +18,15 @@
     { type: 'suppressor', price: SUPPRESSOR.price, label: `suppressor ${SUPPRESSOR.price}cr` },
     { type: 'stim', price: STIM.price, label: `stim ${STIM.price}cr` },
   ] as const
+
+  // Threat levels as of tab-open: flash only marks level-ups the player
+  // witnesses, not levels that already existed when the tab mounted.
+  const levelsAtMount = new Map(game.state.missions.map(m => [m.id, m.threatLevel]))
 </script>
 
 {#each game.state.missions as mission (mission.id)}
   {#key mission.threatLevel}
-  <div class="card" class:hot={mission.threatBar >= DANGER_THREAT} class:flash={mission.threatLevel > 0}>
+  <div class="card" class:hot={mission.threatBar >= DANGER_THREAT} class:flash={mission.threatLevel > (levelsAtMount.get(mission.id) ?? 0)}>
     <div class="row">
       <strong>{'★'.repeat(mission.rating)} {mission.environment}</strong>
       <span class="dim">{mission.payout}cr · threat lv {mission.threatLevel}</span>

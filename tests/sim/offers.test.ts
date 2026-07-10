@@ -77,6 +77,26 @@ describe('offer pump in tick', () => {
     expect(s.timers.job1).toBeGreaterThan(s.tick)
   })
 
+  it('hiring the door candidate returns the credit', () => {
+    const s = newRun(14)
+    atDoor(s, candidateOffer(s))
+    hire(s, s.door!.id)
+    expect(s.door).toBeNull()
+    expect(creditHeld(s, 'candidate')).toBe(true)
+    tick(s)
+    expect(s.timers.candidate).toBeGreaterThan(s.tick)
+  })
+
+  it('dispatching the door job returns the credit', () => {
+    const s = newRun(15)
+    atDoor(s, jobOffer(s))
+    dispatch(s, s.door!.id, idleMercIds(s))
+    expect(s.door).toBeNull()
+    expect(creditHeld(s, 'job1')).toBe(true)
+    tick(s)
+    expect(s.timers.job1).toBeGreaterThan(s.tick)
+  })
+
   it('player actions consume no RNG', () => {
     const s = newRun(13)
     const before = s.rngState
