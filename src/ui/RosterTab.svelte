@@ -56,7 +56,7 @@
         </button>
       {/if}
       {#if confirmingDismiss === merc.id}
-        <button class="ghost danger" onclick={() => act(() => dismiss(game.state, merc.id))}>confirm dismissal</button>
+        <button class="ghost danger" disabled={!idle.has(merc.id)} onclick={() => act(() => dismiss(game.state, merc.id))}>confirm dismissal</button>
         <button class="ghost" onclick={() => (confirmingDismiss = null)}>keep</button>
       {:else}
         <button class="ghost" disabled={!idle.has(merc.id)} onclick={() => (confirmingDismiss = merc.id)}>dismiss</button>
