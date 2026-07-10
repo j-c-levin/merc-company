@@ -1,4 +1,4 @@
-import type { GameState, Merc, MercClass, Environment, Offer } from './types'
+import type { GameState, Merc, MercClass, Environment, Offer, TimerKey } from './types'
 import type { Rng } from './rng'
 import {
   HP_BASE, HP_PER_RANK, HIRE_COST_PER_RANK_SQ, PAYOUT_PER_RATING_SQ,
@@ -29,17 +29,13 @@ export function generateMerc(state: GameState, rng: Rng): Merc {
   }
 }
 
-export function generateOffer(state: GameState, rng: Rng): Offer {
-  const expiresAt = state.tick + rng.int(OFFER_TTL_MIN, OFFER_TTL_MAX)
-  if (rng.next() < CANDIDATE_CHANCE) {
-    return { id: state.nextId++, kind: 'candidate', postedAt: state.tick, expiresAt, candidate: generateMerc(state, rng) }
-  }
-  const rating = rng.int(1, maxTier(state.reputation))
+export function generateJob(state: GameState, rng: Rng, rating: number): Offer {
   return {
     id: state.nextId++,
     kind: 'job',
-    postedAt: state.tick,
-    expiresAt,
+    source: `job${rating}` as TimerKey,
+    postedAt: 0,
+    expiresAt: 0,
     job: {
       rating,
       environment: ENVIRONMENTS[rng.int(0, ENVIRONMENTS.length - 1)],
@@ -47,4 +43,25 @@ export function generateOffer(state: GameState, rng: Rng): Offer {
       work: rating * WORK_PER_RATING,
     },
   }
+}
+
+export function generateCandidate(state: GameState, rng: Rng): Offer {
+  return {
+    id: state.nextId++,
+    kind: 'candidate',
+    source: 'candidate',
+    postedAt: 0,
+    expiresAt: 0,
+    candidate: generateMerc(state, rng),
+  }
+}
+
+export function generateOffer(state: GameState, rng: Rng): Offer {
+  const expiresAt = state.tick + rng.int(OFFER_TTL_MIN, OFFER_TTL_MAX)
+  const offer = rng.next() < CANDIDATE_CHANCE
+    ? generateCandidate(state, rng)
+    : generateJob(state, rng, rng.int(1, maxTier(state.reputation)))
+  offer.postedAt = state.tick
+  offer.expiresAt = expiresAt
+  return offer
 }

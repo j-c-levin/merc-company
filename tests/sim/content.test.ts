@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createRng } from '../../src/sim/rng'
-import { maxTier, generateMerc, generateOffer } from '../../src/sim/content'
+import { maxTier, generateMerc, generateOffer, generateJob, generateCandidate } from '../../src/sim/content'
 import type { GameState } from '../../src/sim/types'
 import { HP_BASE, HP_PER_RANK, HIRE_COST_PER_RANK_SQ, PAYOUT_PER_RATING_SQ, WORK_PER_RATING, OFFER_TTL_MIN, OFFER_TTL_MAX } from '../../src/sim/balance'
 
@@ -57,5 +57,33 @@ describe('generateOffer', () => {
       }
     }
     expect(sawJob && sawCandidate).toBe(true)
+  })
+})
+
+describe('generateJob / generateCandidate', () => {
+  it('stamps source and leaves TTL unstamped until door promotion', () => {
+    const state = stubState(0)
+    const rng = createRng(5)
+    const job = generateJob(state, rng, 3)
+    expect(job.kind).toBe('job')
+    expect(job.source).toBe('job3')
+    expect(job.postedAt).toBe(0)
+    expect(job.expiresAt).toBe(0)
+    expect(job.job!.rating).toBe(3)
+    expect(job.job!.payout).toBe(9 * PAYOUT_PER_RATING_SQ)
+    expect(job.job!.work).toBe(3 * WORK_PER_RATING)
+
+    const cand = generateCandidate(state, rng)
+    expect(cand.kind).toBe('candidate')
+    expect(cand.source).toBe('candidate')
+    expect(cand.candidate).toBeDefined()
+    expect(cand.postedAt).toBe(0)
+    expect(cand.expiresAt).toBe(0)
+  })
+
+  it('generateJob takes its rating from the caller, not from reputation', () => {
+    const state = stubState(0) // rep 0: the old maxTier path would cap at 1★
+    const rng = createRng(6)
+    expect(generateJob(state, rng, 5).job!.rating).toBe(5)
   })
 })

@@ -6,7 +6,7 @@ import { SLOT_PRICES, SEAT_PRICE, MAX_ROSTER_SLOTS, MAX_SEATS, MEDBAY_PER_HP } f
 
 function jobOffer(state: GameState): Offer {
   const o: Offer = {
-    id: state.nextId++, kind: 'job', postedAt: state.tick, expiresAt: state.tick + 60,
+    id: state.nextId++, kind: 'job', source: 'job1', postedAt: state.tick, expiresAt: state.tick + 60,
     job: { rating: 1, environment: 'urban', payout: 150, work: 100 },
   }
   state.offers.push(o)
