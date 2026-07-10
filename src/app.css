@@ -17,6 +17,7 @@ header { display: flex; gap: 0.75rem; align-items: center; padding: 0.6rem 0.8re
 header .cash { color: var(--accent); font-weight: 700; }
 header .loan { color: var(--dim); flex: 1; }
 header .pause { background: none; border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 0.2rem 0.6rem; }
+header .restart { padding: 0.2rem 0.5rem; font-size: 0.8rem; white-space: nowrap; }
 main { flex: 1; overflow-y: auto; padding: 0.8rem; }
 nav { display: flex; border-top: 1px solid var(--line); background: var(--panel); }
 nav button { flex: 1; padding: 0.8rem 0.2rem; background: none; border: none; color: var(--dim); font-size: 0.85rem; position: relative; }
@@ -28,6 +29,10 @@ nav button.active { color: var(--accent); font-weight: 700; }
 button.action { background: var(--accent); border: none; color: #1a1a1a; font-weight: 700; border-radius: 6px; padding: 0.45rem 0.8rem; }
 button.ghost { background: none; border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 0.45rem 0.8rem; }
 button:disabled { opacity: 0.4; }
+/* button.danger, not .danger: must out-rank button.ghost (0,1,1) or the
+   ghost border/color wins and confirm states never turn red. Keep it after
+   button.ghost — equal specificity, order breaks the tie. */
+button.danger { border-color: var(--danger); color: var(--danger); }
 .dim { color: var(--dim); font-size: 0.85rem; }
 
 @keyframes flash {
