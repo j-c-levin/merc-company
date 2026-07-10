@@ -1,7 +1,7 @@
 <script lang="ts">
   import { game, act } from './store.svelte'
   import { reinforce, withdraw, sendSupply, idleMercIds } from '../sim/actions'
-  import { MEDKIT, SUPPRESSOR, STIM, THREAT_CAP } from '../sim/balance'
+  import { MEDKIT, SUPPRESSOR, STIM, THREAT_CAP, DANGER_THREAT } from '../sim/balance'
   import type { Mission } from '../sim/types'
 
   let pickingFor: number | null = $state(null) // mission id whose reinforce picker is open
@@ -21,7 +21,7 @@
 </script>
 
 {#each game.state.missions as mission (mission.id)}
-  <div class="card" class:hot={mission.threatBar >= 12}>
+  <div class="card" class:hot={mission.threatBar >= DANGER_THREAT}>
     <div class="row">
       <strong>{'★'.repeat(mission.rating)} {mission.environment}</strong>
       <span class="dim">{mission.payout}cr · threat lv {mission.threatLevel}</span>

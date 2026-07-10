@@ -1,6 +1,6 @@
 <script lang="ts">
   import { game, startLoop, togglePause } from './ui/store.svelte'
-  import { CYCLE_LENGTH } from './sim/balance'
+  import { CYCLE_LENGTH, DANGER_THREAT } from './sim/balance'
   import RosterTab from './ui/RosterTab.svelte'
   import JobsTab from './ui/JobsTab.svelte'
   import MissionsTab from './ui/MissionsTab.svelte'
@@ -13,7 +13,7 @@
   const clock = $derived(
     `${Math.floor(ticksLeft / 60)}:${String(ticksLeft % 60).padStart(2, '0')}`,
   )
-  const dangerCount = $derived(game.state.missions.filter(m => m.threatBar >= 12).length)
+  const dangerCount = $derived(game.state.missions.filter(m => m.threatBar >= DANGER_THREAT).length)
 </script>
 
 <header>

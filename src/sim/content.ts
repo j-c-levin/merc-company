@@ -32,12 +32,13 @@ export function generateMerc(state: GameState, rng: Rng): Merc {
 export function generateOffer(state: GameState, rng: Rng): Offer {
   const expiresAt = state.tick + rng.int(OFFER_TTL_MIN, OFFER_TTL_MAX)
   if (rng.next() < CANDIDATE_CHANCE) {
-    return { id: state.nextId++, kind: 'candidate', expiresAt, candidate: generateMerc(state, rng) }
+    return { id: state.nextId++, kind: 'candidate', postedAt: state.tick, expiresAt, candidate: generateMerc(state, rng) }
   }
   const rating = rng.int(1, maxTier(state.reputation))
   return {
     id: state.nextId++,
     kind: 'job',
+    postedAt: state.tick,
     expiresAt,
     job: {
       rating,

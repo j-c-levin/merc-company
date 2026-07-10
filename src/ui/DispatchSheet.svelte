@@ -2,6 +2,7 @@
   import { game, act } from './store.svelte'
   import { dispatch, idleMercIds } from '../sim/actions'
   import { project } from '../sim/projection'
+  import { pairKey, bondLevel } from '../sim/bonds'
   import type { Offer } from '../sim/types'
 
   let { offer, onclose }: { offer: Offer; onclose: () => void } = $props()
@@ -13,6 +14,19 @@
   const offerAlive = $derived(
     game.state.offers.some(o => o.id === offer.id) || game.state.seated.some(o => o.id === offer.id)
   )
+  const activeBonds = $derived.by(() => {
+    const bonds: { nameA: string; nameB: string; level: number }[] = []
+    for (let i = 0; i < selected.length; i++) {
+      for (let j = i + 1; j < selected.length; j++) {
+        const level = bondLevel(game.state.bonds[pairKey(selected[i], selected[j])] ?? 0)
+        if (level <= 0) continue
+        const a = game.state.mercs.find(m => m.id === selected[i])
+        const b = game.state.mercs.find(m => m.id === selected[j])
+        if (a && b) bonds.push({ nameA: a.name, nameB: b.name, level })
+      }
+    }
+    return bonds
+  })
 
   function toggle(id: number): void {
     selected = selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id]
@@ -37,6 +51,14 @@
     {/each}
     {#if idleMercs.length === 0}
       <p class="dim">nobody is idle</p>
+    {/if}
+
+    {#if activeBonds.length > 0}
+      <div class="bonds dim">
+        {#each activeBonds as b (b.nameA + b.nameB)}
+          <div>🔗 {b.nameA} + {b.nameB} ★×{b.level}</div>
+        {/each}
+      </div>
     {/if}
 
     <div class="forecast">

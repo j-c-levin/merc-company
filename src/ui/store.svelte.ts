@@ -22,7 +22,8 @@ function load(): GameState | null {
 
 function freshState(): GameState {
   const seedParam = params().get('seed')
-  return newRun(seedParam ? Number(seedParam) : Date.now() % 0xffffffff)
+  const parsed = seedParam ? Number(seedParam) : NaN
+  return newRun(Number.isFinite(parsed) ? parsed : Date.now() % 0xffffffff)
 }
 
 export const game = $state({
@@ -53,7 +54,8 @@ let started = false
 export function startLoop(): void {
   if (started) return
   started = true
-  const speed = Number(params().get('speed') ?? 1)
+  const speedParam = Number(params().get('speed') ?? 1)
+  const speed = Number.isFinite(speedParam) && speedParam > 0 ? speedParam : 1
   setInterval(() => {
     if (!game.paused && game.state.status === 'running') {
       tick(game.state)

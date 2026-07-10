@@ -17,6 +17,9 @@
       <li>mercs lost: {game.state.stats.mercsLost}</li>
       <li>mercs standing: {game.state.mercs.length}</li>
       <li>reputation: {game.state.reputation}</li>
+      {#if won}
+        <li>score: {game.state.cash - game.state.loan + game.state.reputation + game.state.mercs.length}</li>
+      {/if}
     </ul>
     <button class="action" onclick={restart}>{won ? 'run it back' : 'new company, new name'}</button>
   </div>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { game, act } from './store.svelte'
-  import { seatOffer, rejectOffer, hire, buySeat } from '../sim/actions'
+  import { seatOffer, rejectOffer, hire, buySeat, idleMercIds } from '../sim/actions'
+  import { project } from '../sim/projection'
   import { SEAT_PRICE, MAX_SEATS } from '../sim/balance'
   import type { Offer } from '../sim/types'
   import DispatchSheet from './DispatchSheet.svelte'
@@ -9,6 +10,21 @@
 
   function ttl(offer: Offer): number {
     return Math.max(0, offer.expiresAt - game.state.tick)
+  }
+
+  function ttlPct(offer: Offer): number {
+    const total = offer.expiresAt - offer.postedAt
+    if (total <= 0) return 0
+    const pct = ((offer.expiresAt - game.state.tick) / total) * 100
+    return Math.max(0, Math.min(100, pct))
+  }
+
+  function estimatedDuration(offer: Offer): string {
+    const idle = idleMercIds(game.state)
+    if (idle.length === 0) return '—'
+    const proj = project(game.state, idle, offer.job!.rating, offer.job!.environment)
+    if (!Number.isFinite(proj.durationTicks)) return '—'
+    return `~${proj.durationTicks}s with your idle crew`
   }
 </script>
 
@@ -48,6 +64,7 @@
         <strong>{'★'.repeat(offer.job!.rating)} job · {offer.job!.environment}</strong>
         <span class="payout">{offer.job!.payout}cr</span>
       </div>
+      <div class="dim">{estimatedDuration(offer)}</div>
     {:else}
       <div class="row">
         <strong>{offer.candidate!.name}</strong>
@@ -56,7 +73,7 @@
       <div class="row dim"><span>hire for {offer.candidate!.hirePrice}cr</span></div>
     {/if}
     {#if !seated}
-      <div class="bar"><div style="width:{Math.min(100, ttl(offer))}%; background:var(--danger)"></div></div>
+      <div class="bar"><div style="width:{ttlPct(offer)}%; background:var(--danger)"></div></div>
       <div class="dim">{ttl(offer)}s before they walk</div>
     {/if}
     <div class="row">

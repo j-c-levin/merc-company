@@ -3,7 +3,7 @@ import type { GameState } from '../src/sim/types'
 import { newRun, tick } from '../src/sim/tick'
 import { hire, dispatch, seatOffer, sendSupply, buySlot, medbayHeal, idleMercIds } from '../src/sim/actions'
 import { project } from '../src/sim/projection'
-import { SUPPRESSOR, SLOT_PRICES, MAX_ROSTER_SLOTS, STARTING_ROSTER_SLOTS } from '../src/sim/balance'
+import { SUPPRESSOR, SLOT_PRICES, MAX_ROSTER_SLOTS, STARTING_ROSTER_SLOTS, MEDBAY_PER_HP } from '../src/sim/balance'
 
 const RESERVE = 200
 // A bigger squad only has to buy slots when it can comfortably keep spending on
@@ -34,7 +34,7 @@ export function botAct(state: GameState): void {
     if (!idleMercIds(state).includes(merc.id)) continue
     if (merc.hp >= merc.maxHp) continue
     if (merc.hp * 2 > merc.maxHp) continue
-    const price = (merc.maxHp - merc.hp) * 10
+    const price = (merc.maxHp - merc.hp) * MEDBAY_PER_HP
     if (state.cash - price >= RESERVE) medbayHeal(state, merc.id)
   }
 
@@ -61,7 +61,7 @@ export function botAct(state: GameState): void {
     }
   }
 
-  // 4. seat the best unstaffable job if there's room
+  // 5. seat the best unstaffable job if there's room
   if (state.seated.length < state.waitingSeats) {
     const best = state.offers
       .filter(o => o.kind === 'job')
@@ -69,7 +69,7 @@ export function botAct(state: GameState): void {
     if (best) seatOffer(state, best.id)
   }
 
-  // 5. suppress missions about to tick over — but only if no suppressor is already
+  // 6. suppress missions about to tick over — but only if no suppressor is already
   //    inbound, otherwise the bot re-buys every tick during the 3-tick travel (finding 2).
   for (const mission of state.missions) {
     const pending = mission.supplies.some(su => su.type === 'suppressor')
@@ -79,22 +79,37 @@ export function botAct(state: GameState): void {
   }
 }
 
-export function runOne(seed: number): GameState {
+export function runOne(seed: number, onTick?: (state: GameState) => void): GameState {
   const state = newRun(seed)
   while (state.status === 'running') {
     botAct(state)
     tick(state)
+    onTick?.(state)
   }
   return state
 }
 
+const DECILES = 10
+const SAMPLE_INTERVAL = 150 // CYCLE_LENGTH / DECILES
+
 function main(): void {
   const n = Number(process.argv[2] ?? 500)
   let wins = 0, cash = 0, lost = 0, done = 0, failed = 0
+  let lostRuns = 0, wipedRuns = 0
   const worst: { seed: number; cash: number }[] = []
+  const cashByDecile: number[][] = Array.from({ length: DECILES }, () => [])
   for (let seed = 1; seed <= n; seed++) {
-    const s = runOne(seed)
+    const s = runOne(seed, state => {
+      if (state.tick % SAMPLE_INTERVAL === 0) {
+        const idx = state.tick / SAMPLE_INTERVAL - 1
+        if (idx >= 0 && idx < DECILES) cashByDecile[idx].push(state.cash)
+      }
+    })
     if (s.status === 'won') wins++
+    if (s.status === 'lost') {
+      lostRuns++
+      if (s.mercs.length === 0) wipedRuns++
+    }
     cash += s.cash
     lost += s.stats.mercsLost
     done += s.stats.jobsDone
@@ -108,6 +123,23 @@ function main(): void {
   console.log(`mean jobs done/failed: ${(done / n).toFixed(1)} / ${(failed / n).toFixed(1)}`)
   console.log(`mean mercs lost: ${(lost / n).toFixed(2)}`)
   console.log(`worst seeds: ${worst.slice(0, 5).map(w => `${w.seed} (${w.cash}cr)`).join(', ')}`)
+
+  if (lostRuns > 0) {
+    const wipedPct = (wipedRuns / lostRuns) * 100
+    console.log(
+      `loss breakdown (of ${lostRuns} losses): ${wipedPct.toFixed(1)}% total roster wipe, ${(100 - wipedPct).toFixed(1)}% short on cash`,
+    )
+  } else {
+    console.log('loss breakdown: no losses')
+  }
+
+  const curve = cashByDecile
+    .map((samples, i) => {
+      const mean = samples.length ? samples.reduce((a, b) => a + b, 0) / samples.length : NaN
+      return `${(i + 1) * 10}%:${Number.isFinite(mean) ? mean.toFixed(0) : 'n/a'}cr`
+    })
+    .join('  ')
+  console.log(`cash over time (decile means): ${curve}`)
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main()

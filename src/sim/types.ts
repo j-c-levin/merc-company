@@ -23,6 +23,7 @@ export interface JobDetails {
 export interface Offer {
   id: number
   kind: 'job' | 'candidate'
+  postedAt: number // tick the offer spawned, for TTL bar normalization
   expiresAt: number // tick at which it auto-rejects (ignored while seated)
   job?: JobDetails
   candidate?: Merc

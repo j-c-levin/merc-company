@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 1
+export const SCHEMA_VERSION = 2
 export const CYCLE_LENGTH = 1500
 export const LOAN = 5000
 export const STARTING_CASH = 500
@@ -30,3 +30,4 @@ export const BOND_THRESHOLDS = [2, 5, 9] // missions together for levels 1/2/3
 export const HEAL_INTERVAL = 5          // idle mercs heal 1 hp every N ticks
 export const MEDBAY_PER_HP = 10         // instant heal price per missing hp
 export const REP_PER_TIER = 4           // rep needed per extra offer/candidate tier
+export const DANGER_THREAT = 12         // threatBar at/above this counts as a "hot" mission in the UI
