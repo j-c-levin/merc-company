@@ -46,7 +46,9 @@
 <section>
   <h3 class="dim">at the door</h3>
   {#if game.state.door}
-    {@render offerCard(game.state.door, false)}
+    {#key game.state.door.id}
+      {@render offerCard(game.state.door, false)}
+    {/key}
   {:else}
     <p class="dim">nobody at the door — they'll come</p>
   {/if}
