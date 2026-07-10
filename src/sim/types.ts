@@ -65,6 +65,9 @@ export interface GameState {
   mercs: Merc[]
   offers: Offer[] // unseated stream
   seated: Offer[] // waiting room
+  door: Offer | null // the one visible offer; TTL runs only here
+  queue: Offer[] // hidden FIFO of fired-but-not-yet-shown offers
+  timers: Partial<Record<TimerKey, number>> // key -> tick it next fires; absent = "reschedule me"
   missions: Mission[]
   homebound: Homebound[] // mercs traveling back (withdrawal / mission end)
   bonds: Record<string, number> // pairKey -> missions completed together
