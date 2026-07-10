@@ -1,9 +1,11 @@
 import { defineConfig } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 
+import { cloudflare } from "@cloudflare/vite-plugin";
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [svelte()],
+  plugins: [svelte(), cloudflare()],
   // Dep optimization crashes in vite 8.1: rolldown's tsconfig discovery runs
   // against its own virtual runtime module ("Tsconfig not found" resolving
   // node:module — rolldown#8097). All deps here are ESM, so skip prebundling
