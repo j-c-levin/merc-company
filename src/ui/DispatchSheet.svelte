@@ -10,6 +10,9 @@
   const idle = $derived(idleMercIds(game.state))
   const idleMercs = $derived(game.state.mercs.filter(m => idle.includes(m.id)))
   const forecast = $derived(project(game.state, selected, offer.job!.rating, offer.job!.environment))
+  const offerAlive = $derived(
+    game.state.offers.some(o => o.id === offer.id) || game.state.seated.some(o => o.id === offer.id)
+  )
 
   function toggle(id: number): void {
     selected = selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id]
@@ -37,7 +40,9 @@
     {/if}
 
     <div class="forecast">
-      {#if selected.length === 0}
+      {#if !offerAlive}
+        <span class="dim">they got tired of waiting — offer gone</span>
+      {:else if selected.length === 0}
         <span class="dim">pick a squad</span>
       {:else}
         <div>duration: ~{forecast.durationTicks}s</div>
@@ -50,7 +55,7 @@
     </div>
 
     <div class="row">
-      <button class="action" disabled={selected.length === 0} onclick={launch}>send them</button>
+      <button class="action" disabled={selected.length === 0 || !offerAlive} onclick={launch}>send them</button>
       <button class="ghost" onclick={onclose}>back</button>
     </div>
   </div>
