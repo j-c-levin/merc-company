@@ -25,8 +25,9 @@ export type TimerKey = 'job1' | 'job2' | 'job3' | 'job4' | 'job5' | 'candidate'
 export interface Offer {
   id: number
   kind: 'job' | 'candidate'
-  postedAt: number // tick the offer spawned, for TTL bar normalization
-  expiresAt: number // tick at which it auto-rejects (ignored while seated)
+  source: TimerKey // which timer emitted this; its credit is spent while the offer is in flight
+  postedAt: number // tick the offer reached the door; 0 while queued
+  expiresAt: number // tick at which it auto-rejects; 0 while queued (ignored while seated)
   job?: JobDetails
   candidate?: Merc
 }

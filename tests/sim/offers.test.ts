@@ -9,7 +9,7 @@ import { JOB_TIERS, CANDIDATE_ARRIVAL, REP_RAMP, ARRIVAL_JITTER } from '../../sr
 
 function jobOffer(state: GameState, rating = 1): Offer {
   const o: Offer = {
-    id: state.nextId++, kind: 'job', postedAt: state.tick, expiresAt: state.tick + 60,
+    id: state.nextId++, kind: 'job', source: 'job1', postedAt: state.tick, expiresAt: state.tick + 60,
     job: { rating, environment: 'urban', payout: rating * rating * 150, work: rating * 100 },
   }
   state.offers.push(o)
@@ -18,7 +18,7 @@ function jobOffer(state: GameState, rating = 1): Offer {
 
 function candidateOffer(state: GameState): Offer {
   const o: Offer = {
-    id: state.nextId++, kind: 'candidate', postedAt: state.tick, expiresAt: state.tick + 60,
+    id: state.nextId++, kind: 'candidate', source: 'candidate', postedAt: state.tick, expiresAt: state.tick + 60,
     candidate: { id: state.nextId++, name: 'Rook Ash', klass: 'Scout', rank: 1, hp: 20, maxHp: 20, affinity: 'urban', hirePrice: 100 },
   }
   state.offers.push(o)
