@@ -206,6 +206,14 @@ Three layers — these are the official ways agents and humans check progress:
    plays N thousand seeded runs; prints win rate, cause-of-death distribution,
    cash-over-time curves. Used to solve for L and validate tuning constants
    empirically. Pathological runs are reproducible by seed.
+   *Task-17 balance pass (2026-07-10):* left every `balance.ts` value at its
+   starting guess (no economy tuning needed) and fixed the bot policy instead —
+   it now dispatches at `shortfall <= 1` (a fixed 1-point staffing allowance, vs
+   the old rating-scaled one that under-staffed the most dangerous jobs and let a
+   single death cascade into a total wipe), grows the roster by buying slots,
+   heals wounded idle mercs at the medbay, and skips re-buying a suppressor that
+   is already in transit. Validated bot win rate: **52.5% over 1,000 seeds**
+   (mean 17.1 jobs done, 1.65 mercs lost). The four design anchors are untouched.
 3. **Playwright** (MCP available): drives the real UI in a mobile viewport —
    start run, accept job, dispatch, reinforce, reach end screen — to verify
    flows end-to-end.

@@ -1,11 +1,14 @@
 import { pathToFileURL } from 'node:url'
 import type { GameState } from '../src/sim/types'
 import { newRun, tick } from '../src/sim/tick'
-import { hire, dispatch, seatOffer, sendSupply, idleMercIds } from '../src/sim/actions'
+import { hire, dispatch, seatOffer, sendSupply, buySlot, medbayHeal, idleMercIds } from '../src/sim/actions'
 import { project } from '../src/sim/projection'
-import { SUPPRESSOR } from '../src/sim/balance'
+import { SUPPRESSOR, SLOT_PRICES, MAX_ROSTER_SLOTS, STARTING_ROSTER_SLOTS } from '../src/sim/balance'
 
 const RESERVE = 200
+// A bigger squad only has to buy slots when it can comfortably keep spending on
+// hires/supplies afterward; this reserve stops slot-buying from starving the war chest.
+const GROWTH_RESERVE = 500
 
 export function botAct(state: GameState): void {
   // 1. hire affordable candidates when a slot is free
@@ -15,7 +18,35 @@ export function botAct(state: GameState): void {
     if (state.cash - offer.candidate!.hirePrice >= RESERVE) hire(state, offer.id)
   }
 
-  // 2. dispatch all idle mercs to the best job they can nearly fully staff
+  // 2. grow the company: buy a roster slot once the roster is full and cash is
+  //    comfortable. A larger roster is the only way to field squads strong enough
+  //    for the higher-rating jobs that actually pay off (loosening the dispatch
+  //    guard instead just gets under-staffed mercs killed — measured, see report).
+  if (state.rosterSlots < MAX_ROSTER_SLOTS && state.mercs.length >= state.rosterSlots) {
+    const price = SLOT_PRICES[state.rosterSlots - STARTING_ROSTER_SLOTS]
+    if (state.cash - price >= GROWTH_RESERVE) buySlot(state)
+  }
+
+  // 3. patch up wounded idle mercs at the medbay before they get redeployed —
+  //    a wounded merc redispatched is the main way the roster spirals to zero.
+  //    Heal mercs below half HP while cash stays comfortable.
+  for (const merc of state.mercs) {
+    if (!idleMercIds(state).includes(merc.id)) continue
+    if (merc.hp >= merc.maxHp) continue
+    if (merc.hp * 2 > merc.maxHp) continue
+    const price = (merc.maxHp - merc.hp) * 10
+    if (state.cash - price >= RESERVE) medbayHeal(state, merc.id)
+  }
+
+  // 4. dispatch all idle mercs to the best job they can nearly fully staff.
+  //    Guard: shortfall <= 1 (squad power within 1 of the job's full threat,
+  //    rating x 5). A FIXED small allowance — not the old `shortfall <= rating`,
+  //    which scaled the allowance up with rating and so under-staffed exactly the
+  //    high-rating jobs whose per-consequence damage is largest. Any positive
+  //    shortfall feeds the rng(0, 2*shortfall) threat term, and once one merc
+  //    falls the squad's power drops, shortfall climbs, and the mission cascades
+  //    into a total wipe; keeping the allowance at 1 lets weak early squads take
+  //    low-rating jobs to bootstrap while never under-staffing dangerous ones.
   const idle = idleMercIds(state)
   if (idle.length > 0) {
     const jobs = [...state.offers, ...state.seated]
@@ -23,14 +54,14 @@ export function botAct(state: GameState): void {
       .sort((a, b) => b.job!.rating - a.job!.rating)
     for (const offer of jobs) {
       const p = project(state, idle, offer.job!.rating, offer.job!.environment)
-      if (p.shortfall <= offer.job!.rating) {
+      if (p.shortfall <= 1) {
         dispatch(state, offer.id, idle)
         break
       }
     }
   }
 
-  // 3. seat the best unstaffable job if there's room
+  // 4. seat the best unstaffable job if there's room
   if (state.seated.length < state.waitingSeats) {
     const best = state.offers
       .filter(o => o.kind === 'job')
@@ -38,9 +69,11 @@ export function botAct(state: GameState): void {
     if (best) seatOffer(state, best.id)
   }
 
-  // 4. suppress missions about to tick over
+  // 5. suppress missions about to tick over — but only if no suppressor is already
+  //    inbound, otherwise the bot re-buys every tick during the 3-tick travel (finding 2).
   for (const mission of state.missions) {
-    if (mission.threatBar >= 14 && state.cash >= SUPPRESSOR.price + RESERVE) {
+    const pending = mission.supplies.some(su => su.type === 'suppressor')
+    if (mission.threatBar >= 14 && !pending && state.cash >= SUPPRESSOR.price + RESERVE) {
       sendSupply(state, mission.id, 'suppressor')
     }
   }
