@@ -63,13 +63,35 @@ Mercs currently have a fixed rank for their whole life. Add per-merc
 progression within a run.
 
 **Data:** add `xp: number` to `Merc` (`src/sim/types.ts`), initialized to 0 in
-`generateMerc` (`content.ts`). Bump `SCHEMA_VERSION`.
+`generateMerc` (`content.ts`). Add two records to `Mission`:
+`ticksOnSite: Record<number, number>` (merc id → ticks spent on site,
+incremented each tick for every member of `squad`) and
+`withdrawn: number[]` (ids of mercs who were pulled out alive). Bump
+`SCHEMA_VERSION`.
 
-**Earning:** in the mission-completion branch of `updateMission`
-(`src/sim/tick.ts` — the same block that pays out, awards reputation, and
-calls `recordMissionTogether`), award each surviving squad member
-`xp += mission.rating`. Completions only; failures award nothing. This keeps
-all "mission ended" bookkeeping in one place.
+**Earning — XP is proportional to time on the job.** The full-mission XP for
+a mission is `mission.rating`. When the mission **completes** (and only
+then — failures award nothing, dead mercs get nothing), award each merc who
+ever served on it:
+
+```
+share   = ticksOnSite[id] / totalMissionTicks     // 0..1
+penalty = withdrawn.includes(id) ? RETREAT_XP_PENALTY : 1
+xp     += mission.rating × share × penalty
+```
+
+with `RETREAT_XP_PENALTY = 0.1` in `balance.ts`. This has two deliberate
+anti-cheese properties: a merc reinforced in at the last moment earns almost
+nothing (tiny `share`), and pulling a merc out early forfeits 90% of what
+they'd banked — e.g. a merc on site until 1 tick before completion who is
+withdrawn has a 0.99 share but receives `0.99 × 0.1 ≈ 10%` of the mission's
+XP. Withdrawal XP is settled when the mission completes, not at the moment of
+withdrawal (if the mission subsequently fails, they get nothing, like
+everyone else). Keep the award in the mission-completion branch of
+`updateMission` (`src/sim/tick.ts` — the same block that pays out, awards
+reputation, and calls `recordMissionTogether`) so all "mission ended"
+bookkeeping stays in one place. XP is fractional — store it as a plain
+number and display it rounded.
 
 **Ranking up:** define cumulative thresholds in `balance.ts`, mirroring how
 `BOND_THRESHOLDS` works — e.g. `RANK_UP_XP = [6, 14, 26, 42]` meaning a merc
@@ -91,10 +113,14 @@ stars: `xp toward next rank`), and surface the rank-up moment (card flash or
 a line in the mission card). Rank-ups also raise nothing else — hire price is
 paid once and does not retroactively change.
 
-**Tests to write first:** xp awarded on completion and not on failure;
-threshold crossing raises rank and maxHp exactly once; rank caps at 5;
-determinism test still passes (no new randomness); a JSON round-trip
-preserves xp.
+**Tests to write first:** full-duration merc earns exactly `rating` xp on
+completion; a merc reinforced in for the final N ticks earns `rating × N /
+total`; a withdrawn merc earns `share × 0.1` (use the 0.99-share example from
+above as a literal test case); nothing awarded on mission failure, including
+to earlier withdrawers; dead mercs award nothing; threshold crossing raises
+rank and maxHp exactly once; rank caps at 5; determinism test still passes
+(no new randomness); a JSON round-trip preserves xp and the new mission
+records.
 
 ### 2. Class perks
 
