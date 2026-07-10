@@ -1,7 +1,7 @@
 import type { GameState, Mission } from './types'
 import { createRng, type Rng } from './rng'
 import { squadPower, recordMissionTogether } from './bonds'
-import { generateMerc } from './content'
+import { generateMerc, generateOffer } from './content'
 import {
   SCHEMA_VERSION, CYCLE_LENGTH, LOAN, STARTING_CASH, STARTING_ROSTER_SLOTS,
   STARTING_SEATS, OFFER_ARRIVAL_MIN, OFFER_ARRIVAL_MAX, THREAT_BASE_PER_RATING,
@@ -56,7 +56,12 @@ export function tick(state: GameState): void {
     }
   }
 
-  // offers: task 6 · supply/reinforcement arrivals: task 8 · deadline: task 10
+  if (state.tick >= state.nextOfferAt) {
+    state.offers.push(generateOffer(state, rng))
+    state.nextOfferAt = state.tick + rng.int(OFFER_ARRIVAL_MIN, OFFER_ARRIVAL_MAX)
+  }
+  state.offers = state.offers.filter(o => o.expiresAt > state.tick)
+  // supply/reinforcement arrivals: task 8 · deadline: task 10
   state.rngState = rng.getState()
 }
 
