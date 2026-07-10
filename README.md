@@ -62,36 +62,43 @@ re-validate balance with the harness before finishing.
 Mercs currently have a fixed rank for their whole life. Add per-merc
 progression within a run.
 
-**Data:** add `xp: number` to `Merc` (`src/sim/types.ts`), initialized to 0 in
-`generateMerc` (`content.ts`). Add two records to `Mission`:
+**Data:** add `xp: number` (integer) to `Merc` (`src/sim/types.ts`),
+initialized to 0 in `generateMerc` (`content.ts`). Add to `Mission`:
 `ticksOnSite: Record<number, number>` (merc id → ticks spent on site,
-incremented each tick for every member of `squad`) and
-`withdrawn: number[]` (ids of mercs who were pulled out alive). Bump
-`SCHEMA_VERSION`.
+incremented each tick for every member of `squad`) and `elapsedTicks: number`
+(total ticks the mission has run). Bump `SCHEMA_VERSION`.
 
 **Earning — XP is proportional to time on the job.** The full-mission XP for
-a mission is `mission.rating`. When the mission **completes** (and only
-then — failures award nothing, dead mercs get nothing), award each merc who
-ever served on it:
+a mission is `mission.rating`. Two award moments:
 
-```
-share   = ticksOnSite[id] / totalMissionTicks     // 0..1
-penalty = withdrawn.includes(id) ? RETREAT_XP_PENALTY : 1
-xp     += mission.rating × share × penalty
-```
+1. **On mission completion** (in the completion branch of `updateMission` in
+   `src/sim/tick.ts` — the same block that pays out, awards reputation, and
+   calls `recordMissionTogether`), each surviving squad member gets:
 
-with `RETREAT_XP_PENALTY = 0.1` in `balance.ts`. This has two deliberate
-anti-cheese properties: a merc reinforced in at the last moment earns almost
-nothing (tiny `share`), and pulling a merc out early forfeits 90% of what
-they'd banked — e.g. a merc on site until 1 tick before completion who is
-withdrawn has a 0.99 share but receives `0.99 × 0.1 ≈ 10%` of the mission's
-XP. Withdrawal XP is settled when the mission completes, not at the moment of
-withdrawal (if the mission subsequently fails, they get nothing, like
-everyone else). Keep the award in the mission-completion branch of
-`updateMission` (`src/sim/tick.ts` — the same block that pays out, awards
-reputation, and calls `recordMissionTogether`) so all "mission ended"
-bookkeeping stays in one place. XP is fractional — store it as a plain
-number and display it rounded.
+   ```
+   xp += round(mission.rating × ticksOnSite[id] / elapsedTicks)
+   ```
+
+   A merc reinforced in at the last moment earns a tiny share that rounds to
+   ~0 — you can't cheat rank-ups by cameo appearances. Failures award
+   nothing; dead mercs get nothing.
+
+2. **On withdrawal** (in the `withdraw` action), the merc is paid
+   immediately — at a heavy penalty:
+
+   ```
+   share = (ticksOnSite[id] / elapsedTicks) × (workDone / workRequired)
+   xp   += max(1, round(mission.rating × share × RETREAT_XP_PENALTY))
+   ```
+
+   with `RETREAT_XP_PENALTY = 0.1` in `balance.ts`. The canonical example: a
+   merc on site from the start who is pulled out 1 tick before completion has
+   a ~0.99 share, so they bank `0.99 × 0.1 ≈ 10%` of the mission's XP —
+   rounded to the nearest int, minimum 1. Because payment happens at the
+   moment of retreat, it is theirs to keep even if the mission subsequently
+   fails. (The `workDone / workRequired` factor is what makes "when they
+   left" matter — attendance alone would pay a start-to-10% retreater the
+   same as a start-to-99% one.)
 
 **Ranking up:** define cumulative thresholds in `balance.ts`, mirroring how
 `BOND_THRESHOLDS` works — e.g. `RANK_UP_XP = [6, 14, 26, 42]` meaning a merc
@@ -114,13 +121,14 @@ a line in the mission card). Rank-ups also raise nothing else — hire price is
 paid once and does not retroactively change.
 
 **Tests to write first:** full-duration merc earns exactly `rating` xp on
-completion; a merc reinforced in for the final N ticks earns `rating × N /
-total`; a withdrawn merc earns `share × 0.1` (use the 0.99-share example from
-above as a literal test case); nothing awarded on mission failure, including
-to earlier withdrawers; dead mercs award nothing; threshold crossing raises
-rank and maxHp exactly once; rank caps at 5; determinism test still passes
-(no new randomness); a JSON round-trip preserves xp and the new mission
-records.
+completion; a merc reinforced in for the final N ticks earns
+`round(rating × N / total)` (≈0 for a cameo); the 0.99-share retreat example
+above as a literal test case; retreat XP is always ≥ 1 and is paid at the
+moment of withdrawal; a merc who retreated keeps their XP when the mission
+later fails; completion of a failed mission awards nothing to the squad that
+wiped; dead mercs award nothing; threshold crossing raises rank and maxHp
+exactly once; rank caps at 5; determinism test still passes (no new
+randomness); a JSON round-trip preserves xp and the new mission records.
 
 ### 2. Class perks
 
