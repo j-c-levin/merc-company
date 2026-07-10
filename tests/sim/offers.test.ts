@@ -1,73 +1,129 @@
 import { describe, it, expect } from 'vitest'
 import { newRun, tick } from '../../src/sim/tick'
 import { seatOffer, rejectOffer, hire, dispatch, idleMercIds } from '../../src/sim/actions'
-import type { GameState, Offer } from '../../src/sim/types'
-import { OFFER_TTL_MAX, STARTING_SEATS } from '../../src/sim/balance'
+import type { GameState, Offer, TimerKey } from '../../src/sim/types'
+import { OFFER_TTL_MIN, OFFER_TTL_MAX, STARTING_SEATS } from '../../src/sim/balance'
 import { createRng } from '../../src/sim/rng'
 import { TIMER_KEYS, unlockedTimers, baseInterval, arrivalInterval, creditHeld, pumpOffers } from '../../src/sim/offers'
 import { JOB_TIERS, CANDIDATE_ARRIVAL, REP_RAMP, ARRIVAL_JITTER } from '../../src/sim/balance'
 
+function atDoor(state: GameState, offer: Offer): Offer {
+  state.door = offer
+  return offer
+}
+
 function jobOffer(state: GameState, rating = 1): Offer {
-  const o: Offer = {
-    id: state.nextId++, kind: 'job', source: 'job1', postedAt: state.tick, expiresAt: state.tick + 60,
+  return {
+    id: state.nextId++, kind: 'job', source: `job${rating}` as TimerKey,
+    postedAt: state.tick, expiresAt: state.tick + 60,
     job: { rating, environment: 'urban', payout: rating * rating * 150, work: rating * 100 },
   }
-  state.offers.push(o)
-  return o
 }
 
 function candidateOffer(state: GameState): Offer {
-  const o: Offer = {
-    id: state.nextId++, kind: 'candidate', source: 'candidate', postedAt: state.tick, expiresAt: state.tick + 60,
+  return {
+    id: state.nextId++, kind: 'candidate', source: 'candidate',
+    postedAt: state.tick, expiresAt: state.tick + 60,
     candidate: { id: state.nextId++, name: 'Rook Ash', klass: 'Scout', rank: 1, hp: 20, maxHp: 20, affinity: 'urban', hirePrice: 100 },
   }
-  state.offers.push(o)
-  return o
 }
 
-describe('offer stream in tick', () => {
-  it('spawns offers over time and expires unseated ones', () => {
+describe('offer pump in tick', () => {
+  it('newRun opens with a 1★ job at the door, TTL running', () => {
     const s = newRun(10)
-    for (let i = 0; i < OFFER_TTL_MAX + 100; i++) tick(s)
-    // offers arrived (some may have expired, but the stream is alive)
-    expect(s.nextOfferAt).toBeGreaterThan(0)
-    for (const o of s.offers) expect(o.expiresAt).toBeGreaterThan(s.tick)
+    expect(s.door).not.toBeNull()
+    expect(s.door!.kind).toBe('job')
+    expect(s.door!.source).toBe('job1')
+    expect(s.door!.job!.rating).toBe(1)
+    expect(s.door!.postedAt).toBe(0)
+    expect(s.door!.expiresAt).toBeGreaterThanOrEqual(OFFER_TTL_MIN)
+    expect(s.door!.expiresAt).toBeLessThanOrEqual(OFFER_TTL_MAX)
+  })
+
+  it('the opening offer expires and the pump replaces it over time', () => {
+    const s = newRun(10)
+    const openingId = s.door!.id
+    let sawReplacement = false
+    for (let i = 0; i < 200; i++) {
+      tick(s)
+      if (s.door && s.door.id !== openingId) sawReplacement = true
+    }
+    // NOT s.door !== null at the end: the door legitimately sits empty
+    // between an expiry and the next timer firing.
+    expect(sawReplacement).toBe(true)
+  })
+
+  it('rejecting the door offer returns the credit — the next tick reschedules the timer', () => {
+    const s = newRun(11)
+    rejectOffer(s, s.door!.id)
+    expect(s.door).toBeNull()
+    tick(s)
+    expect(s.timers.job1).toBeGreaterThan(s.tick)
   })
 
   it('never expires seated offers', () => {
-    const s = newRun(11)
-    const o = jobOffer(s)
-    seatOffer(s, o.id)
+    const s = newRun(12)
+    const id = s.door!.id
+    seatOffer(s, id)
     for (let i = 0; i < OFFER_TTL_MAX + 50; i++) tick(s)
-    expect(s.seated.some(x => x.id === o.id)).toBe(true)
+    expect(s.seated.some(o => o.id === id)).toBe(true)
+  })
+
+  it('seating returns the credit while the offer persists in seated', () => {
+    const s = newRun(12)
+    seatOffer(s, s.door!.id)
+    expect(creditHeld(s, 'job1')).toBe(true)
+    tick(s)
+    expect(s.timers.job1).toBeGreaterThan(s.tick)
+  })
+
+  it('player actions consume no RNG', () => {
+    const s = newRun(13)
+    const before = s.rngState
+    seatOffer(s, s.door!.id)
+    rejectOffer(s, s.seated[0].id)
+    expect(s.rngState).toBe(before)
+  })
+
+  it('same seed + same actions at same ticks → identical states', () => {
+    const play = (): GameState => {
+      const s = newRun(77)
+      for (let i = 0; i < 120; i++) {
+        tick(s)
+        if (i === 30 && s.door) rejectOffer(s, s.door.id)
+        if (i === 60 && s.door && s.seated.length < s.waitingSeats) seatOffer(s, s.door.id)
+      }
+      return s
+    }
+    expect(JSON.stringify(play())).toBe(JSON.stringify(play()))
   })
 })
 
 describe('seat/reject', () => {
   it('seats up to capacity then throws', () => {
     const s = newRun(12)
-    const offers = [jobOffer(s), jobOffer(s), jobOffer(s)]
-    seatOffer(s, offers[0].id)
-    seatOffer(s, offers[1].id)
+    seatOffer(s, atDoor(s, jobOffer(s)).id)
+    seatOffer(s, atDoor(s, jobOffer(s)).id)
     expect(s.seated).toHaveLength(STARTING_SEATS)
-    expect(() => seatOffer(s, offers[2].id)).toThrow(/seat/i)
+    expect(() => seatOffer(s, atDoor(s, jobOffer(s)).id)).toThrow(/seat/i)
   })
 
-  it('rejects from either list', () => {
+  it('rejects from the door and from a seat', () => {
     const s = newRun(13)
-    const a = jobOffer(s), b = jobOffer(s)
+    const a = atDoor(s, jobOffer(s))
     seatOffer(s, a.id)
+    const b = atDoor(s, jobOffer(s))
     rejectOffer(s, a.id)
     rejectOffer(s, b.id)
     expect(s.seated).toHaveLength(0)
-    expect(s.offers).toHaveLength(0)
+    expect(s.door).toBeNull()
   })
 })
 
 describe('hire', () => {
   it('moves the candidate into the roster and charges cash', () => {
     const s = newRun(14)
-    const o = candidateOffer(s)
+    const o = atDoor(s, candidateOffer(s))
     const cash = s.cash
     hire(s, o.id)
     expect(s.mercs).toHaveLength(3)
@@ -77,14 +133,14 @@ describe('hire', () => {
   it('throws when the roster is full', () => {
     const s = newRun(15)
     s.rosterSlots = 2 // roster already has 2 starters
-    const o = candidateOffer(s)
+    const o = atDoor(s, candidateOffer(s))
     expect(() => hire(s, o.id)).toThrow(/roster/i)
   })
 
   it('throws when cash is short', () => {
     const s = newRun(16)
     s.cash = 50
-    const o = candidateOffer(s)
+    const o = atDoor(s, candidateOffer(s))
     expect(() => hire(s, o.id)).toThrow(/cash|afford/i)
   })
 })
@@ -92,10 +148,10 @@ describe('hire', () => {
 describe('dispatch', () => {
   it('creates a mission from a job offer with the chosen squad', () => {
     const s = newRun(17)
-    const o = jobOffer(s, 2)
+    const o = atDoor(s, jobOffer(s, 2))
     const squad = idleMercIds(s)
     const missionId = dispatch(s, o.id, squad)
-    expect(s.offers).toHaveLength(0)
+    expect(s.door).toBeNull()
     const m = s.missions.find(x => x.id === missionId)!
     expect(m.squad).toEqual(squad)
     expect(m.workRequired).toBe(200)
@@ -104,15 +160,14 @@ describe('dispatch', () => {
 
   it('refuses mercs that are already deployed', () => {
     const s = newRun(18)
-    const a = jobOffer(s, 1), b = jobOffer(s, 1)
     const squad = idleMercIds(s)
-    dispatch(s, a.id, squad)
-    expect(() => dispatch(s, b.id, squad)).toThrow(/idle/i)
+    dispatch(s, atDoor(s, jobOffer(s)).id, squad)
+    expect(() => dispatch(s, atDoor(s, jobOffer(s)).id, squad)).toThrow(/idle/i)
   })
 
   it('refuses an empty squad', () => {
     const s = newRun(19)
-    const o = jobOffer(s, 1)
+    const o = atDoor(s, jobOffer(s, 1))
     expect(() => dispatch(s, o.id, [])).toThrow(/empty/i)
   })
 })

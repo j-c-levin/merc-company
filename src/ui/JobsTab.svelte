@@ -45,10 +45,9 @@
 
 <section>
   <h3 class="dim">at the door</h3>
-  {#each game.state.offers as offer (offer.id)}
-    {@render offerCard(offer, false)}
-  {/each}
-  {#if game.state.offers.length === 0}
+  {#if game.state.door}
+    {@render offerCard(game.state.door, false)}
+  {:else}
     <p class="dim">nobody at the door — they'll come</p>
   {/if}
 </section>

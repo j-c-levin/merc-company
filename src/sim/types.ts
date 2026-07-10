@@ -63,7 +63,6 @@ export interface GameState {
   rosterSlots: number
   waitingSeats: number
   mercs: Merc[]
-  offers: Offer[] // unseated stream
   seated: Offer[] // waiting room
   door: Offer | null // the one visible offer; TTL runs only here
   queue: Offer[] // hidden FIFO of fired-but-not-yet-shown offers
@@ -71,7 +70,6 @@ export interface GameState {
   missions: Mission[]
   homebound: Homebound[] // mercs traveling back (withdrawal / mission end)
   bonds: Record<string, number> // pairKey -> missions completed together
-  nextOfferAt: number
   nextId: number
   stats: { jobsDone: number; jobsFailed: number; mercsLost: number }
 }

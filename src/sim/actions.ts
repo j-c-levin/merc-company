@@ -14,21 +14,18 @@ export function idleMercIds(state: GameState): number[] {
 }
 
 function takeOffer(state: GameState, offerId: number): Offer {
-  const fromOffers = state.offers.find(o => o.id === offerId)
-  const fromSeated = state.seated.find(o => o.id === offerId)
-  const offer = fromOffers ?? fromSeated
+  const offer = state.door?.id === offerId ? state.door : state.seated.find(o => o.id === offerId)
   if (!offer) throw new Error(`no offer ${offerId}`)
-  state.offers = state.offers.filter(o => o.id !== offerId)
+  if (state.door?.id === offerId) state.door = null // credit returns via creditHeld; no timer bookkeeping
   state.seated = state.seated.filter(o => o.id !== offerId)
   return offer
 }
 
 export function seatOffer(state: GameState, offerId: number): void {
   if (state.seated.length >= state.waitingSeats) throw new Error('no free seat')
-  const offer = state.offers.find(o => o.id === offerId)
-  if (!offer) throw new Error(`no unseated offer ${offerId}`)
-  state.offers = state.offers.filter(o => o.id !== offerId)
-  state.seated.push(offer)
+  if (state.door?.id !== offerId) throw new Error(`no door offer ${offerId}`)
+  state.seated.push(state.door)
+  state.door = null
 }
 
 export function rejectOffer(state: GameState, offerId: number): void {
@@ -36,7 +33,7 @@ export function rejectOffer(state: GameState, offerId: number): void {
 }
 
 export function hire(state: GameState, offerId: number): void {
-  const offer = state.offers.find(o => o.id === offerId) ?? state.seated.find(o => o.id === offerId)
+  const offer = (state.door?.id === offerId ? state.door : undefined) ?? state.seated.find(o => o.id === offerId)
   if (!offer || offer.kind !== 'candidate') throw new Error(`no candidate offer ${offerId}`)
   const merc = offer.candidate!
   if (state.mercs.length >= state.rosterSlots) throw new Error('roster is full')
@@ -47,7 +44,7 @@ export function hire(state: GameState, offerId: number): void {
 }
 
 export function dispatch(state: GameState, offerId: number, mercIds: number[]): number {
-  const offer = state.offers.find(o => o.id === offerId) ?? state.seated.find(o => o.id === offerId)
+  const offer = (state.door?.id === offerId ? state.door : undefined) ?? state.seated.find(o => o.id === offerId)
   if (!offer || offer.kind !== 'job') throw new Error(`no job offer ${offerId}`)
   if (mercIds.length === 0) throw new Error('squad is empty')
   const idle = new Set(idleMercIds(state))

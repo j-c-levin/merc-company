@@ -1,10 +1,11 @@
 import type { GameState, Mission } from './types'
 import { createRng, type Rng } from './rng'
 import { squadPower, recordMissionTogether } from './bonds'
-import { generateMerc, generateOffer } from './content'
+import { generateMerc, generateJob } from './content'
+import { pumpOffers } from './offers'
 import {
   SCHEMA_VERSION, CYCLE_LENGTH, LOAN, STARTING_CASH, STARTING_ROSTER_SLOTS,
-  STARTING_SEATS, OFFER_ARRIVAL_MIN, OFFER_ARRIVAL_MAX, THREAT_BASE_PER_RATING,
+  STARTING_SEATS, OFFER_TTL_MIN, OFFER_TTL_MAX, THREAT_BASE_PER_RATING,
   THREAT_CAP, CONSEQUENCE_SPREAD, REINFORCE_TRAVEL, HEAL_INTERVAL, STIM,
   MEDKIT, SUPPRESSOR,
 } from './balance'
@@ -23,7 +24,6 @@ export function newRun(seed: number): GameState {
     rosterSlots: STARTING_ROSTER_SLOTS,
     waitingSeats: STARTING_SEATS,
     mercs: [],
-    offers: [],
     seated: [],
     door: null,
     queue: [],
@@ -31,12 +31,15 @@ export function newRun(seed: number): GameState {
     missions: [],
     homebound: [],
     bonds: {},
-    nextOfferAt: 0,
     nextId: 1,
     stats: { jobsDone: 0, jobsFailed: 0, mercsLost: 0 },
   }
   state.mercs.push(generateMerc(state, rng), generateMerc(state, rng))
-  state.nextOfferAt = rng.int(OFFER_ARRIVAL_MIN, OFFER_ARRIVAL_MAX)
+  // opening: a 1★ job is already at the door, TTL running; job1's credit is spent
+  const opening = generateJob(state, rng, 1)
+  opening.postedAt = 0
+  opening.expiresAt = rng.int(OFFER_TTL_MIN, OFFER_TTL_MAX)
+  state.door = opening
   state.rngState = rng.getState()
   return state
 }
@@ -60,11 +63,7 @@ export function tick(state: GameState): void {
     }
   }
 
-  if (state.tick >= state.nextOfferAt) {
-    state.offers.push(generateOffer(state, rng))
-    state.nextOfferAt = state.tick + rng.int(OFFER_ARRIVAL_MIN, OFFER_ARRIVAL_MAX)
-  }
-  state.offers = state.offers.filter(o => o.expiresAt > state.tick)
+  pumpOffers(state, rng)
   if (state.tick >= CYCLE_LENGTH) {
     state.status = state.cash >= state.loan ? 'won' : 'lost'
   }
