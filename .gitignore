@@ -25,3 +25,10 @@ dist-ssr
 
 # Scratch dir for SDD skill; not part of the shipped project
 .superpowers/
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
