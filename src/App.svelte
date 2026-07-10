@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { game, startLoop, togglePause } from './ui/store.svelte'
+  import { game, startLoop, togglePause, restart } from './ui/store.svelte'
   import { CYCLE_LENGTH, DANGER_THREAT } from './sim/balance'
   import RosterTab from './ui/RosterTab.svelte'
   import JobsTab from './ui/JobsTab.svelte'
@@ -7,7 +7,20 @@
   import EndScreen from './ui/EndScreen.svelte'
 
   let tab: 'roster' | 'jobs' | 'missions' = $state('jobs')
+  let confirmingRestart = $state(false)
+  let restartTimeout: ReturnType<typeof setTimeout> | undefined
   startLoop()
+
+  function onRestartClick(): void {
+    if (confirmingRestart) {
+      clearTimeout(restartTimeout)
+      confirmingRestart = false
+      restart()
+    } else {
+      confirmingRestart = true
+      restartTimeout = setTimeout(() => (confirmingRestart = false), 4000)
+    }
+  }
 
   const ticksLeft = $derived(Math.max(0, CYCLE_LENGTH - game.state.tick))
   const clock = $derived(
@@ -20,6 +33,14 @@
   <span class="cash">{game.state.cash}cr</span>
   <span class="loan">loan {game.state.loan}cr · {clock}</span>
   <span class="rep">rep {game.state.reputation}</span>
+  <button
+    class="ghost restart"
+    class:danger={confirmingRestart}
+    onclick={onRestartClick}
+    title="quit and restart"
+  >
+    {confirmingRestart ? 'confirm wipe' : '⟲'}
+  </button>
   <button class="pause" onclick={togglePause}>{game.paused ? '▶' : '⏸'}</button>
 </header>
 
