@@ -1,7 +1,8 @@
-import type { GameState, Offer } from './types'
+import type { GameState, Offer, SupplyType } from './types'
 import {
   SLOT_PRICES, SEAT_PRICE, MAX_ROSTER_SLOTS, MAX_SEATS,
   MEDBAY_PER_HP, STARTING_ROSTER_SLOTS,
+  MEDKIT, SUPPRESSOR, STIM, REINFORCE_TRAVEL, SUPPLY_TRAVEL,
 } from './balance'
 
 export function idleMercIds(state: GameState): number[] {
@@ -103,4 +104,37 @@ export function medbayHeal(state: GameState, mercId: number): number {
   state.cash -= price
   merc.hp = merc.maxHp
   return price
+}
+
+const SUPPLY_PRICES: Record<SupplyType, number> = {
+  medkit: MEDKIT.price,
+  suppressor: SUPPRESSOR.price,
+  stim: STIM.price,
+}
+
+function findMission(state: GameState, missionId: number) {
+  const mission = state.missions.find(m => m.id === missionId)
+  if (!mission) throw new Error(`no mission ${missionId}`)
+  return mission
+}
+
+export function reinforce(state: GameState, missionId: number, mercId: number): void {
+  const mission = findMission(state, missionId)
+  if (!idleMercIds(state).includes(mercId)) throw new Error('merc is not idle')
+  mission.inbound.push({ mercId, arriveAt: state.tick + REINFORCE_TRAVEL })
+}
+
+export function withdraw(state: GameState, missionId: number, mercId: number): void {
+  const mission = findMission(state, missionId)
+  if (!mission.squad.includes(mercId)) throw new Error('merc is not on this mission')
+  mission.squad = mission.squad.filter(id => id !== mercId)
+  state.homebound.push({ mercId, arriveAt: state.tick + REINFORCE_TRAVEL })
+}
+
+export function sendSupply(state: GameState, missionId: number, type: SupplyType): void {
+  const mission = findMission(state, missionId)
+  const price = SUPPLY_PRICES[type]
+  if (state.cash < price) throw new Error('cannot afford supply')
+  state.cash -= price
+  mission.supplies.push({ type, arriveAt: state.tick + SUPPLY_TRAVEL })
 }

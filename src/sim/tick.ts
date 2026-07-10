@@ -6,6 +6,7 @@ import {
   SCHEMA_VERSION, CYCLE_LENGTH, LOAN, STARTING_CASH, STARTING_ROSTER_SLOTS,
   STARTING_SEATS, OFFER_ARRIVAL_MIN, OFFER_ARRIVAL_MAX, THREAT_BASE_PER_RATING,
   THREAT_CAP, CONSEQUENCE_SPREAD, REINFORCE_TRAVEL, HEAL_INTERVAL, STIM,
+  MEDKIT, SUPPRESSOR,
 } from './balance'
 
 export function newRun(seed: number): GameState {
@@ -61,11 +62,30 @@ export function tick(state: GameState): void {
     state.nextOfferAt = state.tick + rng.int(OFFER_ARRIVAL_MIN, OFFER_ARRIVAL_MAX)
   }
   state.offers = state.offers.filter(o => o.expiresAt > state.tick)
-  // supply/reinforcement arrivals: task 8 · deadline: task 10
+  // deadline: task 10
   state.rngState = rng.getState()
 }
 
 function updateMission(state: GameState, mission: Mission, rng: Rng): void {
+  // arrivals first: reinforcements join, supplies land
+  const arrived = mission.inbound.filter(i => i.arriveAt <= state.tick)
+  mission.inbound = mission.inbound.filter(i => i.arriveAt > state.tick)
+  mission.squad.push(...arrived.map(i => i.mercId))
+
+  const landed = mission.supplies.filter(su => su.arriveAt <= state.tick)
+  mission.supplies = mission.supplies.filter(su => su.arriveAt > state.tick)
+  for (const supply of landed) {
+    if (supply.type === 'medkit') {
+      const squadMercs = state.mercs.filter(m => mission.squad.includes(m.id))
+      const target = squadMercs.sort((a, b) => a.hp - b.hp)[0]
+      if (target) target.hp = Math.min(target.maxHp, target.hp + MEDKIT.heal)
+    } else if (supply.type === 'suppressor') {
+      mission.threatBar = Math.max(0, mission.threatBar - SUPPRESSOR.reduce)
+    } else {
+      mission.stimUntil = state.tick + STIM.duration
+    }
+  }
+
   let power = squadPower(state, mission.squad, mission.environment)
   if (state.tick <= mission.stimUntil) power = Math.floor(power * STIM.multiplier)
 
