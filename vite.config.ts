@@ -1,4 +1,3 @@
-/// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 
@@ -14,8 +13,4 @@ export default defineConfig({
   // anything that still gets bundled.
   optimizeDeps: { noDiscovery: true, exclude: ['svelte'], rolldownOptions: { tsconfig: false } },
   ssr: { optimizeDeps: { noDiscovery: true, exclude: ['svelte'], rolldownOptions: { tsconfig: false } } },
-  test: {
-    include: ['tests/**/*.test.ts'],
-    environment: 'node',
-  },
 })
