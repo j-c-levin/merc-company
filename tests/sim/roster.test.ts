@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { newRun } from '../../src/sim/tick'
 import { dismiss, buySlot, buySeat, medbayHeal, dispatch, idleMercIds } from '../../src/sim/actions'
 import type { GameState, Offer } from '../../src/sim/types'
-import { SLOT_PRICES, SEAT_PRICE, MAX_ROSTER_SLOTS, MAX_SEATS, MEDBAY_PER_HP, STARTING_ROSTER_SLOTS } from '../../src/sim/balance'
+import { SLOT_PRICES, SEAT_PRICE, MAX_ROSTER_SLOTS, MAX_SEATS, MEDBAY_PER_HP } from '../../src/sim/balance'
 
 function jobOffer(state: GameState): Offer {
   const o: Offer = {
