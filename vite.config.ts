@@ -3,6 +3,9 @@ import { svelte } from '@sveltejs/vite-plugin-svelte'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Served from https://j-c-levin.github.io/merc-company/ — assets must
+  // resolve under the repo subpath, not the domain root.
+  base: '/merc-company/',
   plugins: [svelte()],
   // Dep optimization crashes in vite 8.1: rolldown's tsconfig discovery runs
   // against its own virtual runtime module ("Tsconfig not found" resolving
