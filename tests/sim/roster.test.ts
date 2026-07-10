@@ -9,7 +9,7 @@ function jobOffer(state: GameState): Offer {
     id: state.nextId++, kind: 'job', source: 'job1', postedAt: state.tick, expiresAt: state.tick + 60,
     job: { rating: 1, environment: 'urban', payout: 150, work: 100 },
   }
-  state.offers.push(o)
+  state.door = o
   return o
 }
 

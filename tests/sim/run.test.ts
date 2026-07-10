@@ -13,8 +13,9 @@ describe('deadline', () => {
   it('loses at the deadline when cash falls short', () => {
     const s = newRun(41)
     s.cash = 0
-    s.offers = []
-    s.nextOfferAt = CYCLE_LENGTH + 999 // no income possible
+    s.door = null
+    s.queue = []
+    s.timers = { job1: CYCLE_LENGTH + 999, candidate: CYCLE_LENGTH + 999 } // no income possible
     for (let i = 0; i < CYCLE_LENGTH; i++) tick(s)
     expect(s.status).toBe('lost')
   })

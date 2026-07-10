@@ -2,7 +2,7 @@ import type { GameState, Merc, MercClass, Environment, Offer, TimerKey } from '.
 import type { Rng } from './rng'
 import {
   HP_BASE, HP_PER_RANK, HIRE_COST_PER_RANK_SQ, PAYOUT_PER_RATING_SQ,
-  WORK_PER_RATING, OFFER_TTL_MIN, OFFER_TTL_MAX, CANDIDATE_CHANCE, REP_PER_TIER,
+  WORK_PER_RATING, REP_PER_TIER,
 } from './balance'
 
 const FIRST = ['Vera', 'Dax', 'Imani', 'Rook', 'Sana', 'Bruno', 'Kestrel', 'Ozzy', 'Mara', 'Tunde', 'Lena', 'Cassius', 'Piotr', 'Yuki', 'Salome', 'Grif', 'Nadia', 'Emeka', 'Wren', 'Halvor']
@@ -54,14 +54,4 @@ export function generateCandidate(state: GameState, rng: Rng): Offer {
     expiresAt: 0,
     candidate: generateMerc(state, rng),
   }
-}
-
-export function generateOffer(state: GameState, rng: Rng): Offer {
-  const expiresAt = state.tick + rng.int(OFFER_TTL_MIN, OFFER_TTL_MAX)
-  const offer = rng.next() < CANDIDATE_CHANCE
-    ? generateCandidate(state, rng)
-    : generateJob(state, rng, rng.int(1, maxTier(state.reputation)))
-  offer.postedAt = state.tick
-  offer.expiresAt = expiresAt
-  return offer
 }

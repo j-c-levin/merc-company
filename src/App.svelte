@@ -34,7 +34,7 @@
     Roster ({game.state.mercs.length}/{game.state.rosterSlots})
   </button>
   <button class:active={tab === 'jobs'} onclick={() => (tab = 'jobs')}>
-    Jobs ({game.state.offers.length + game.state.seated.length})
+    Jobs ({(game.state.door ? 1 : 0) + game.state.seated.length})
   </button>
   <button class:active={tab === 'missions'} onclick={() => (tab = 'missions')}>
     Missions ({game.state.missions.length}){#if dangerCount > 0}<span class="danger-badge">{dangerCount}</span>{/if}

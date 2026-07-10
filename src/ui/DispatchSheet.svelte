@@ -12,7 +12,7 @@
   const idleMercs = $derived(game.state.mercs.filter(m => idle.includes(m.id)))
   const forecast = $derived(project(game.state, selected, offer.job!.rating, offer.job!.environment))
   const offerAlive = $derived(
-    game.state.offers.some(o => o.id === offer.id) || game.state.seated.some(o => o.id === offer.id)
+    game.state.door?.id === offer.id || game.state.seated.some(o => o.id === offer.id)
   )
   const activeBonds = $derived.by(() => {
     const bonds: { nameA: string; nameB: string; level: number }[] = []

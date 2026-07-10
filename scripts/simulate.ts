@@ -11,8 +11,9 @@ const RESERVE = 200
 const GROWTH_RESERVE = 500
 
 export function botAct(state: GameState): void {
+  const doorOffers = state.door ? [state.door] : []
   // 1. hire affordable candidates when a slot is free
-  for (const offer of [...state.offers, ...state.seated]) {
+  for (const offer of [...doorOffers, ...state.seated]) {
     if (offer.kind !== 'candidate') continue
     if (state.mercs.length >= state.rosterSlots) break
     if (state.cash - offer.candidate!.hirePrice >= RESERVE) hire(state, offer.id)
@@ -49,7 +50,7 @@ export function botAct(state: GameState): void {
   //    low-rating jobs to bootstrap while never under-staffing dangerous ones.
   const idle = idleMercIds(state)
   if (idle.length > 0) {
-    const jobs = [...state.offers, ...state.seated]
+    const jobs = [...doorOffers, ...state.seated]
       .filter(o => o.kind === 'job')
       .sort((a, b) => b.job!.rating - a.job!.rating)
     for (const offer of jobs) {
@@ -61,9 +62,11 @@ export function botAct(state: GameState): void {
     }
   }
 
-  // 5. seat the best unstaffable job if there's room
+  // 5. seat the best unstaffable job if there's room. Re-read the live door:
+  //    step 4 may have dispatched (and thus cleared) it, and the door snapshot
+  //    taken at the top of botAct would go stale — seating it would throw.
   if (state.seated.length < state.waitingSeats) {
-    const best = state.offers
+    const best = (state.door ? [state.door] : [])
       .filter(o => o.kind === 'job')
       .sort((a, b) => b.job!.rating - a.job!.rating)[0]
     if (best) seatOffer(state, best.id)
