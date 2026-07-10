@@ -14,9 +14,9 @@
   }
 
   const supplies = [
-    { type: 'medkit', label: `medkit ${MEDKIT.price}cr` },
-    { type: 'suppressor', label: `suppressor ${SUPPRESSOR.price}cr` },
-    { type: 'stim', label: `stim ${STIM.price}cr` },
+    { type: 'medkit', price: MEDKIT.price, label: `medkit ${MEDKIT.price}cr` },
+    { type: 'suppressor', price: SUPPRESSOR.price, label: `suppressor ${SUPPRESSOR.price}cr` },
+    { type: 'stim', price: STIM.price, label: `stim ${STIM.price}cr` },
   ] as const
 </script>
 
@@ -54,7 +54,7 @@
         reinforce
       </button>
       {#each supplies as s (s.type)}
-        <button class="ghost small" disabled={game.state.cash < (s.type === 'medkit' ? MEDKIT.price : s.type === 'suppressor' ? SUPPRESSOR.price : STIM.price)}
+        <button class="ghost small" disabled={game.state.cash < s.price}
           onclick={() => act(() => sendSupply(game.state, mission.id, s.type))}>
           {s.label}
         </button>
