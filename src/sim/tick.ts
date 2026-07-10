@@ -62,7 +62,9 @@ export function tick(state: GameState): void {
     state.nextOfferAt = state.tick + rng.int(OFFER_ARRIVAL_MIN, OFFER_ARRIVAL_MAX)
   }
   state.offers = state.offers.filter(o => o.expiresAt > state.tick)
-  // deadline: task 10
+  if (state.tick >= CYCLE_LENGTH) {
+    state.status = state.cash >= state.loan ? 'won' : 'lost'
+  }
   state.rngState = rng.getState()
 }
 
