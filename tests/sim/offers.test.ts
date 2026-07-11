@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { newRun, tick } from '../../src/sim/tick'
-import { rejectOffer, hire, dispatch, idleMercIds } from '../../src/sim/actions'
+import { rejectOffer, hire, dispatch, idleMercIds, takeSeat } from '../../src/sim/actions'
 import type { GameState, Offer, TimerKey } from '../../src/sim/types'
 import { OFFER_TTL_MIN, OFFER_TTL_MAX } from '../../src/sim/balance'
 import { createRng } from '../../src/sim/rng'
@@ -249,6 +249,78 @@ describe('seated actions', () => {
     const s = newRun(19)
     s.seated = []
     expect(() => dispatch(s, seatJob(s).id, [])).toThrow(/empty/i)
+  })
+})
+
+describe('take a seat (lock an offer)', () => {
+  // A fresh state parked off tick 0 with an empty, single-seat waiting room.
+  function lockState(): GameState {
+    const s = newRun(60)
+    s.tick = 100
+    s.waitingSeats = 1
+    s.seated = []
+    s.nextOfferAt = 0
+    return s
+  }
+
+  it('takeSeat sets locked on the target seated offer', () => {
+    const s = lockState()
+    const o = jobOffer(s); s.seated.push(o)
+    expect(o.locked).toBeUndefined()
+    takeSeat(s, o.id)
+    expect(s.seated.find(x => x.id === o.id)!.locked).toBe(true)
+  })
+
+  it('takeSeat throws for an unknown offer id', () => {
+    const s = lockState()
+    expect(() => takeSeat(s, 9999)).toThrow(/no offer/i)
+  })
+
+  it('takeSeat is idempotent when called twice', () => {
+    const s = lockState()
+    const o = jobOffer(s); s.seated.push(o)
+    takeSeat(s, o.id)
+    expect(() => takeSeat(s, o.id)).not.toThrow()
+    expect(o.locked).toBe(true)
+  })
+
+  it('a locked offer survives past its original TTL', () => {
+    const s = lockState()
+    const o = jobOffer(s)
+    o.expiresAt = s.tick // would expire this very pump
+    s.seated.push(o)
+    takeSeat(s, o.id)
+    s.nextOfferAt = s.tick + 999 // nothing new arrives to confuse the count
+    pumpOffers(s, createRng(1))
+    expect(s.seated.some(x => x.id === o.id)).toBe(true)
+  })
+
+  it('a locked seat blocks new arrivals even when one is due', () => {
+    const s = lockState() // waitingSeats = 1
+    const o = jobOffer(s); s.seated.push(o)
+    takeSeat(s, o.id)
+    s.nextOfferAt = s.tick // an arrival is due right now
+    pumpOffers(s, createRng(2))
+    expect(s.seated).toHaveLength(1) // seat stays occupied by the locked offer
+    expect(s.seated[0].id).toBe(o.id)
+    expect(s.nextOfferAt).toBe(s.tick) // still pending — arrives only once a seat frees
+  })
+
+  it('rejecting a locked offer still frees the seat', () => {
+    const s = lockState()
+    const o = jobOffer(s); s.seated.push(o)
+    takeSeat(s, o.id)
+    rejectOffer(s, o.id)
+    expect(s.seated.some(x => x.id === o.id)).toBe(false)
+  })
+
+  it('hiring a locked candidate still removes it from the seat', () => {
+    const s = lockState()
+    const o = candidateOffer(s); s.seated.push(o)
+    takeSeat(s, o.id)
+    hire(s, o.id)
+    expect(s.seated.some(x => x.id === o.id)).toBe(false)
+    expect(s.mercs.some(m => m.name === 'Rook Ash')).toBe(true)
   })
 })
 

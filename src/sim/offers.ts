@@ -61,8 +61,9 @@ function generateFor(state: GameState, rng: Rng, key: TimerKey): Offer {
  *  1 expire → 2 schedule → 3 arrive. A seat freed this tick (by expiry) can be
  *  filled this tick. All offer RNG is consumed here and only here. */
 export function pumpOffers(state: GameState, rng: Rng): void {
-  // 1. expire seated offers whose TTL ran out (frees seats)
-  state.seated = state.seated.filter(o => o.expiresAt > state.tick)
+  // 1. expire seated offers whose TTL ran out (frees seats); locked offers
+  //    ("take a seat") never expire and keep holding their seat.
+  state.seated = state.seated.filter(o => o.locked || o.expiresAt > state.tick)
 
   // 2. schedule the next arrival if none is pending (0 = unscheduled)
   if (!state.nextOfferAt) {

@@ -28,6 +28,7 @@ export interface Offer {
   source: TimerKey // which timer/tier this offer represents; used for the offer-mix harness
   postedAt: number // tick the offer took its seat
   expiresAt: number // tick at which it auto-rejects (times out) and frees the seat
+  locked?: boolean // pinned via "take a seat": never expires, holds its seat until hired/accepted/rejected
   job?: JobDetails
   candidate?: Merc
 }
