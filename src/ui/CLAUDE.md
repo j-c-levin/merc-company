@@ -8,9 +8,9 @@ actions throw on invalid input and the UI has no try/catch.
 
 | Component | Role |
 |---|---|
-| `../App.svelte` | shell: header (cash, loan+clock, rep, restart, pause), tab switch, nav with danger badge, mounts `EndScreen` on run end |
+| `../App.svelte` | shell: header (cash, loan+clock, rep, restart, pause), then one scrolling `<main>` stacking the three sections (Active Missions → Incoming → At Base) with count-bearing `<h2>` headers; mounts `EndScreen` on run end |
 | `JobsTab.svelte` | waiting room + the door offer (TTL bar), seat/reject/hire, opens `DispatchSheet` |
-| `DispatchSheet.svelte` | bottom-sheet squad picker with live `project()` forecast and bond preview; full-screen overlay (blocks nav while open) |
+| `DispatchSheet.svelte` | bottom-sheet squad picker with live `project()` forecast and bond preview; full-screen overlay (blocks the screen while open) |
 | `MissionsTab.svelte` | mission cards: work/threat bars, threat-level flash, reinforce/withdraw/supplies |
 | `RosterTab.svelte` | merc cards (hp, status, bonds), medbay heal, two-step dismiss, slot purchase |
 | `EndScreen.svelte` | win/lose overlay with run stats and restart |
