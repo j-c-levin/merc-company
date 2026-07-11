@@ -31,7 +31,7 @@
 </script>
 
 {#each game.state.mercs as merc (merc.id)}
-  <div class="card" class:highlight={highlighted === merc.id}>
+  <div class="card" class:highlight={highlighted === merc.id} class:away={status(merc.id) === 'on mission'}>
     <div class="row">
       <strong>{merc.name}</strong>
       <span class="dim">{merc.klass} · {'★'.repeat(merc.rank)} · {merc.affinity}</span>
@@ -78,6 +78,7 @@
 <style>
   .row { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
   .card.highlight { border-color: var(--accent); }
+  .card.away { opacity: 0.5; }
   .card.empty, .card.locked { text-align: center; width: 100%; }
   .bond { background: none; border: none; color: var(--accent); padding: 0.15rem 0; display: block; font-size: 0.85rem; }
 </style>
