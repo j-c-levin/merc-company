@@ -10,7 +10,7 @@ function addMerc(state: GameState, rank: number, affinity: Merc['affinity']): Me
 }
 
 describe('project', () => {
-  it('matches the spec worked example (3★, power 15 → 6 ticks, 1 consequence)', () => {
+  it('matches the spec worked example (3★, power 15 → 8 ticks, 1 consequence)', () => {
     const s = newRun(1)
     s.mercs = []
     const a = addMerc(s, 2, 'urban'), b = addMerc(s, 3, 'rural'), c = addMerc(s, 4, 'urban')
