@@ -24,6 +24,15 @@ export function rejectOffer(state: GameState, offerId: number): void {
   takeOffer(state, offerId)
 }
 
+/** Pin a seated offer so it never times out. The seat it holds never frees, so
+ *  incoming offers throttle by one — that lost throughput is the whole cost.
+ *  Permanent: the only exit is hiring, accepting, or rejecting the offer. */
+export function takeSeat(state: GameState, offerId: number): void {
+  const offer = state.seated.find(o => o.id === offerId)
+  if (!offer) throw new Error(`no offer ${offerId}`)
+  offer.locked = true // idempotent: no-op if already locked
+}
+
 export function hire(state: GameState, offerId: number): void {
   const offer = state.seated.find(o => o.id === offerId)
   if (!offer || offer.kind !== 'candidate') throw new Error(`no candidate offer ${offerId}`)

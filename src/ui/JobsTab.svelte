@@ -1,6 +1,6 @@
 <script lang="ts">
   import { game, act } from './store.svelte'
-  import { rejectOffer, hire, buySeat, idleMercIds } from '../sim/actions'
+  import { rejectOffer, hire, buySeat, takeSeat, idleMercIds } from '../sim/actions'
   import { project } from '../sim/projection'
   import { SEAT_PRICES, MAX_SEATS, STARTING_SEATS } from '../sim/balance'
   import type { Offer } from '../sim/types'
@@ -64,8 +64,12 @@
       </div>
       <div class="row dim"><span>hire for {offer.candidate!.hirePrice}cr</span></div>
     {/if}
-    <div class="bar"><div style="width:{ttlPct(offer)}%; background:var(--danger)"></div></div>
-    <div class="dim">{ttl(offer)}s before they walk</div>
+    {#if offer.locked}
+      <div class="held">held — occupying a seat</div>
+    {:else}
+      <div class="bar"><div style="width:{ttlPct(offer)}%; background:var(--danger)"></div></div>
+      <div class="dim">{ttl(offer)}s before they walk</div>
+    {/if}
     <div class="row">
       {#if offer.kind === 'job'}
         <button class="action" onclick={() => (dispatching = offer)}>accept</button>
@@ -76,6 +80,9 @@
           onclick={() => act(() => hire(game.state, offer.id))}
         >hire</button>
       {/if}
+      {#if !offer.locked}
+        <button class="ghost" onclick={() => act(() => takeSeat(game.state, offer.id))}>take a seat</button>
+      {/if}
       <button class="ghost" onclick={() => act(() => rejectOffer(game.state, offer.id))}>reject</button>
     </div>
   </div>
@@ -84,6 +91,7 @@
 <style>
   .row { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
   .payout { color: var(--accent); font-weight: 700; }
+  .held { font-size: 0.8rem; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
   section { margin-bottom: 1.2rem; }
   h3 { margin: 0 0 0.5rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
 </style>
