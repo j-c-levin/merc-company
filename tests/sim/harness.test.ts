@@ -36,6 +36,8 @@ describe('offer mix by rank', () => {
   it('early game: a steady stream of 1★ jobs', () => {
     const m = measureOfferMix(0)
     expect(m.jobShare.job1).toBe(1) // only tier unlocked
+    // seat-gated arrivals throttle throughput by design; this floor reflects the
+    // measured seat-model rate (currently ≈6.6/100 at rep 0), not the old free-pump rate.
     expect(m.jobsPer100).toBeGreaterThanOrEqual(5) // ≥ one 1★ job per ~20 ticks
   })
 
