@@ -2,14 +2,14 @@ import { describe, it, expect } from 'vitest'
 import { newRun } from '../../src/sim/tick'
 import { dismiss, buySlot, buySeat, medbayHeal, dispatch, idleMercIds } from '../../src/sim/actions'
 import type { GameState, Offer } from '../../src/sim/types'
-import { SLOT_PRICES, SEAT_PRICE, MAX_ROSTER_SLOTS, MAX_SEATS, MEDBAY_PER_HP } from '../../src/sim/balance'
+import { SLOT_PRICES, SEAT_PRICES, MAX_ROSTER_SLOTS, MAX_SEATS, MEDBAY_PER_HP, STARTING_SEATS } from '../../src/sim/balance'
 
 function jobOffer(state: GameState): Offer {
   const o: Offer = {
     id: state.nextId++, kind: 'job', source: 'job1', postedAt: state.tick, expiresAt: state.tick + 60,
     job: { rating: 1, environment: 'urban', payout: 150, work: 100 },
   }
-  state.door = o
+  state.seated.push(o)
   return o
 }
 
@@ -39,12 +39,13 @@ describe('purchases', () => {
     expect(() => buySlot(s)).toThrow(/max/i)
   })
 
-  it('sells the third seat once', () => {
+  it('sells seats at escalating prices up to the max', () => {
     const s = newRun(23)
-    s.cash = 10000
-    buySeat(s)
-    expect(s.waitingSeats).toBe(MAX_SEATS)
-    expect(s.cash).toBe(10000 - SEAT_PRICE)
+    s.cash = 100000
+    expect(s.waitingSeats).toBe(STARTING_SEATS) // 1
+    for (let i = 0; i < MAX_SEATS - STARTING_SEATS; i++) buySeat(s)
+    expect(s.waitingSeats).toBe(MAX_SEATS) // 5
+    expect(s.cash).toBe(100000 - SEAT_PRICES.reduce((a, b) => a + b, 0))
     expect(() => buySeat(s)).toThrow(/max/i)
   })
 

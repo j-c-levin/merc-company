@@ -25,9 +25,7 @@ export function newRun(seed: number): GameState {
     waitingSeats: STARTING_SEATS,
     mercs: [],
     seated: [],
-    door: null,
-    queue: [],
-    timers: {},
+    nextOfferAt: 0,
     missions: [],
     homebound: [],
     bonds: {},
@@ -35,11 +33,13 @@ export function newRun(seed: number): GameState {
     stats: { jobsDone: 0, jobsFailed: 0, mercsLost: 0 },
   }
   state.mercs.push(generateMerc(state, rng), generateMerc(state, rng))
-  // opening: a 1★ job is already at the door, TTL running; job1's credit is spent
+  // opening: a 1★ job already sits in the single starting seat, TTL running
   const opening = generateJob(state, rng, 1)
   opening.postedAt = 0
   opening.expiresAt = rng.int(OFFER_TTL_MIN, OFFER_TTL_MAX)
-  state.door = opening
+  state.seated.push(opening)
+  // nextOfferAt stays 0; the first pump schedules it. The seat is full, so
+  // nothing new arrives until the player clears the opening offer.
   state.rngState = rng.getState()
   return state
 }
