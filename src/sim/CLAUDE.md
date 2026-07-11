@@ -76,7 +76,7 @@ Balancing work changes numbers here and nowhere else. Groups:
 | Group | Constants | Controls |
 |---|---|---|
 | Run economy | `CYCLE_LENGTH` 1500, `LOAN` 5000, `STARTING_CASH` 500 | run length and the win bar |
-| Design anchors | `WORK_PER_RATING` 30, `THREAT_BASE_PER_RATING` 3, `THREAT_CAP` 18, `CONSEQUENCE_SPREAD` 2 | mission duration, threat-neutral power, consequence cadence/variance |
+| Design anchors | `WORK_PER_RATING` 39, `THREAT_BASE_PER_RATING` 3, `THREAT_CAP` 23, `CONSEQUENCE_SPREAD` 2 | mission duration, threat-neutral power, consequence cadence/variance |
 | Mercs | `HP_BASE`, `HP_PER_RANK`, `HIRE_COST_PER_RANK_SQ` | durability and hire pricing (rank²) |
 | Payouts | `PAYOUT_PER_RATING_SQ` | job payout (rating²) — why high-star jobs pay the loan |
 | Capacity | `STARTING_ROSTER_SLOTS`/`MAX_ROSTER_SLOTS`/`SLOT_PRICES`, `STARTING_SEATS`/`MAX_SEATS`/`SEAT_PRICES` | roster growth and waiting-room size |
