@@ -1,12 +1,11 @@
 <script lang="ts">
   import { game, startLoop, togglePause, restart } from './ui/store.svelte'
-  import { CYCLE_LENGTH, DANGER_THREAT } from './sim/balance'
+  import { CYCLE_LENGTH } from './sim/balance'
   import RosterTab from './ui/RosterTab.svelte'
   import JobsTab from './ui/JobsTab.svelte'
   import MissionsTab from './ui/MissionsTab.svelte'
   import EndScreen from './ui/EndScreen.svelte'
 
-  let tab: 'roster' | 'jobs' | 'missions' = $state('jobs')
   let confirmingRestart = $state(false)
   let restartTimeout: ReturnType<typeof setTimeout> | undefined
   startLoop()
@@ -26,7 +25,6 @@
   const clock = $derived(
     `${Math.floor(ticksLeft / 60)}:${String(ticksLeft % 60).padStart(2, '0')}`,
   )
-  const dangerCount = $derived(game.state.missions.filter(m => m.threatBar >= DANGER_THREAT).length)
 </script>
 
 <header>
@@ -45,22 +43,21 @@
 </header>
 
 <main>
-  {#if tab === 'roster'}<RosterTab />{/if}
-  {#if tab === 'jobs'}<JobsTab />{/if}
-  {#if tab === 'missions'}<MissionsTab />{/if}
-</main>
+  <section>
+    <h2>ACTIVE MISSIONS ({game.state.missions.length})</h2>
+    <MissionsTab />
+  </section>
 
-<nav>
-  <button class:active={tab === 'roster'} onclick={() => (tab = 'roster')}>
-    Roster ({game.state.mercs.length}/{game.state.rosterSlots})
-  </button>
-  <button class:active={tab === 'jobs'} onclick={() => (tab = 'jobs')}>
-    Jobs ({(game.state.door ? 1 : 0) + game.state.seated.length})
-  </button>
-  <button class:active={tab === 'missions'} onclick={() => (tab = 'missions')}>
-    Missions ({game.state.missions.length}){#if dangerCount > 0}<span class="danger-badge">{dangerCount}</span>{/if}
-  </button>
-</nav>
+  <section>
+    <h2>INCOMING</h2>
+    <JobsTab />
+  </section>
+
+  <section>
+    <h2>AT BASE ({game.state.mercs.length}/{game.state.rosterSlots})</h2>
+    <RosterTab />
+  </section>
+</main>
 
 {#if game.state.status !== 'running'}
   <EndScreen />
