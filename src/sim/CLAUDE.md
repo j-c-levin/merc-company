@@ -9,8 +9,9 @@ run. `GameState` holds no classes/Maps/functions; bump `SCHEMA_VERSION` in
 
 ## Tick pipeline (`tick.ts`)
 
-`newRun(seed)` creates state (2 starter mercs + a 1★ job already at the door
-with its TTL running). `tick(state)` advances one second, in this order:
+`newRun(seed)` creates state (2 starter mercs + a 1★ job already seated in
+the waiting room with its TTL running). `tick(state)` advances one second, in
+this order:
 
 1. **Missions update** (each, via `updateMission`): reinforcement arrivals
    join the squad and supplies land (medkit heals lowest-hp, suppressor
@@ -41,31 +42,32 @@ with its TTL running). `tick(state)` advances one second, in this order:
   with threatLevel, so lingering missions get progressively lethal. Deaths
   remove the merc permanently (`mercsLost++`).
 
-## Offer pump (`offers.ts`): door / queue / timers, credit-based
+## Offer pump (`offers.ts`): seat-gated waiting room
 
-Six independent timers — `job1`…`job5` (one per star rating) and `candidate`
-(a merc for hire). Each timer owns exactly **one credit**: firing spends it,
-and it returns only when that timer's offer leaves the door/queue. Credit-held
-is *derived, never stored*: a timer holds its credit iff no offer with its
-`source` sits in `state.door` or `state.queue` (`creditHeld`). Seating an
-offer banks it indefinitely **and** returns the credit immediately — seats
-raise throughput, not just storage.
+There is no door, queue, or per-tier timer/credit bookkeeping. Instead there's
+a single scheduler, `state.nextOfferAt` (0 = unscheduled), and a waiting room
+`state.seated: Offer[]` capped at `state.waitingSeats`. Each seated offer
+carries its own TTL (`expiresAt`); a seat is free again the instant its offer
+expires or is taken/rejected/hired.
 
 Per-tick order in `pumpOffers` (order is load-bearing, see the comment there):
 
-1. **Expire** the door offer if `expiresAt ≤ tick`.
-2. **Schedule** every unlocked, credit-holding timer with no pending fire
-   time: `timers[key] = tick + arrivalInterval(...)`.
-3. **Fire** due timers into the hidden FIFO `queue` (fixed key order: low
-   tier first, candidate last — determinism depends on it).
-4. **Promote** the queue front to the door with TTL
-   `rng.int(OFFER_TTL_MIN, OFFER_TTL_MAX)` (18–24 ticks).
+1. **Expire** any seated offer whose `expiresAt ≤ tick` (frees its seat).
+2. **Schedule**: if `nextOfferAt` is unset, roll `tick + arrivalInterval(...)`.
+3. **Arrive**: if `nextOfferAt` is due *and* a seat is free, generate an offer
+   via `pickSource`, stamp its TTL, push it into `seated`, and reschedule
+   (`nextOfferAt = 0`) so the next roll happens next tick. If due but no seat
+   is free, the arrival simply stays pending — seats gate throughput, not
+   generation.
 
 Intervals: `baseInterval` runs linearly from `atUnlock` (at that tier's
-`unlockRep`) to `ramped` over `REP_RAMP` reputation, then clamps;
-`arrivalInterval` adds ±`ARRIVAL_JITTER`. Tier 1 ramps **up** (14 → 130: it
-fades out) while tiers 2–5 ramp **down** (more frequent) — this is the
-rank-shifted offer mix.
+`unlockRep`) to `ramped` over `REP_RAMP` reputation, then clamps.
+`combinedInterval` is the harmonic sum across all unlocked sources (how often
+*some* offer would be due); `arrivalInterval` adds ±`ARRIVAL_JITTER` on top.
+`pickSource` then draws which source actually fires, weighted by each
+unlocked source's `1/baseInterval` rate — this is what preserves the
+rank-shifted mix (tier 1 ramps **up**, 14 → 130, fading out; tiers 2–5 ramp
+**down**, more frequent) without any separate per-tier credit mechanism.
 
 ## `balance.ts` — the single source of tuning constants
 
@@ -74,10 +76,10 @@ Balancing work changes numbers here and nowhere else. Groups:
 | Group | Constants | Controls |
 |---|---|---|
 | Run economy | `CYCLE_LENGTH` 1500, `LOAN` 5000, `STARTING_CASH` 500 | run length and the win bar |
-| Design anchors | `WORK_PER_RATING` 30, `THREAT_BASE_PER_RATING` 3, `THREAT_CAP` 18, `CONSEQUENCE_SPREAD` 2 | mission duration, threat-neutral power, consequence cadence/variance |
+| Design anchors | `WORK_PER_RATING` 39, `THREAT_BASE_PER_RATING` 3, `THREAT_CAP` 23, `CONSEQUENCE_SPREAD` 2 | mission duration, threat-neutral power, consequence cadence/variance |
 | Mercs | `HP_BASE`, `HP_PER_RANK`, `HIRE_COST_PER_RANK_SQ` | durability and hire pricing (rank²) |
 | Payouts | `PAYOUT_PER_RATING_SQ` | job payout (rating²) — why high-star jobs pay the loan |
-| Capacity | `STARTING_ROSTER_SLOTS`/`MAX_ROSTER_SLOTS`/`SLOT_PRICES`, `STARTING_SEATS`/`MAX_SEATS`/`SEAT_PRICE` | roster growth and waiting-room size |
+| Capacity | `STARTING_ROSTER_SLOTS`/`MAX_ROSTER_SLOTS`/`SLOT_PRICES`, `STARTING_SEATS`/`MAX_SEATS`/`SEAT_PRICES` | roster growth and waiting-room size |
 | Offer pump | `OFFER_TTL_MIN`/`MAX` (18–24), `JOB_TIERS` (unlockRep/atUnlock/ramped per tier), `CANDIDATE_ARRIVAL`, `REP_RAMP` 16, `ARRIVAL_JITTER` | offer pacing and the rank-shifted mix |
 | Progression | `REP_PER_TIER` | candidate rank ceiling as reputation grows (`maxTier` in `content.ts`) |
 | Interventions | `MEDKIT`, `SUPPRESSOR`, `STIM`, `REINFORCE_TRAVEL`, `SUPPLY_TRAVEL`, `MEDBAY_PER_HP`, `HEAL_INTERVAL` | mid-mission tools, travel delays, healing economy |
@@ -93,8 +95,10 @@ flaky statistics):
   any-death (currently 100% / 0%).
 - A solo 1★ merc is a real challenge but rarely fatal: gate 55–75% success,
   ≤10% any-death (currently ≈74% / ≈1%).
-- Offer mix: at rep 0, only 1★ jobs and ≥5 job offers per 100 ticks; at rep
-  24, 1★ share < 15% and 4★+5★ share exceeds the 1★ share.
+- Offer mix: at rep 0, only 1★ jobs and ≥5 job offers per 100 ticks (this
+  floor reflects the seat-gated arrival rate — seats throttle throughput by
+  design, so it's lower than a free-pump model would allow); at rep 24, 1★
+  share < 15% and 4★+5★ share exceeds the 1★ share.
 
 ## The balancing workflow
 
@@ -104,7 +108,7 @@ flaky statistics):
 3. Check the numbers against the bands locked in
    `tests/sim/harness.test.ts` (which imports `runMissionScenario` /
    `measureOfferMix` straight from `scripts/simulate.ts`).
-4. `npm test` — all 82 tests must pass. Widen a band only when the *intent*
+4. `npm test` — all 77 tests must pass. Widen a band only when the *intent*
    changes, not to make a number fit.
 5. Optionally `npm run sim` (or `-- 1000`) for full bot runs: win rate, loss
    breakdown, cash-over-time curve. Post-retune the heuristic bot wins ~100%
@@ -117,7 +121,7 @@ flaky statistics):
   precedence; wipe it first (`localStorage.removeItem('merc-company-save-v1')`
   or the header restart button).
 - `?speed=N` — tick rate (N ticks/second; also scales bar animations via the
-  `--tick` CSS var). At high speed the 18–24-tick door TTL is humanly
+  `--tick` CSS var). At high speed the 18–24-tick seat TTL is humanly
   unclickable, but bots can read state and pause.
 - `window.__game` — the reactive store `{ state, paused }`, exposed for
   Playwright. Set `__game.paused = true` to freeze the sim between

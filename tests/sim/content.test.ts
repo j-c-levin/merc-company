@@ -39,7 +39,7 @@ describe('generateMerc', () => {
 })
 
 describe('generateJob / generateCandidate', () => {
-  it('stamps source and leaves TTL unstamped until door promotion', () => {
+  it('stamps source and leaves TTL unstamped until it is seated', () => {
     const state = stubState(0)
     const rng = createRng(5)
     const job = generateJob(state, rng, 3)

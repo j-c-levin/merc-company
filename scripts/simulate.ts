@@ -1,7 +1,7 @@
 import { pathToFileURL } from 'node:url'
 import type { GameState } from '../src/sim/types'
 import { newRun, tick } from '../src/sim/tick'
-import { hire, dispatch, seatOffer, sendSupply, buySlot, medbayHeal, idleMercIds, withdraw, rejectOffer } from '../src/sim/actions'
+import { hire, dispatch, sendSupply, buySlot, medbayHeal, idleMercIds, withdraw, rejectOffer } from '../src/sim/actions'
 import { project } from '../src/sim/projection'
 import { generateJob } from '../src/sim/content'
 import { createRng } from '../src/sim/rng'
@@ -13,9 +13,8 @@ const RESERVE = 200
 const GROWTH_RESERVE = 500
 
 export function botAct(state: GameState): void {
-  const doorOffers = state.door ? [state.door] : []
   // 1. hire affordable candidates when a slot is free
-  for (const offer of [...doorOffers, ...state.seated]) {
+  for (const offer of state.seated) {
     if (offer.kind !== 'candidate') continue
     if (state.mercs.length >= state.rosterSlots) break
     if (state.cash - offer.candidate!.hirePrice >= RESERVE) hire(state, offer.id)
@@ -53,7 +52,7 @@ export function botAct(state: GameState): void {
   //    low-rating jobs to bootstrap while never under-staffing dangerous ones.
   const idle = idleMercIds(state)
   if (idle.length > 0) {
-    const jobs = [...doorOffers, ...state.seated]
+    const jobs = state.seated
       .filter(o => o.kind === 'job')
       .sort((a, b) => b.job!.rating - a.job!.rating)
     for (const offer of jobs) {
@@ -65,15 +64,7 @@ export function botAct(state: GameState): void {
     }
   }
 
-  // 5. seat the best unstaffable job if there's room. Re-read the live door:
-  //    step 4 may have dispatched (and thus cleared) it, and the door snapshot
-  //    taken at the top of botAct would go stale — seating it would throw.
-  if (state.seated.length < state.waitingSeats) {
-    const best = (state.door ? [state.door] : [])
-      .filter(o => o.kind === 'job')
-      .sort((a, b) => b.job!.rating - a.job!.rating)[0]
-    if (best) seatOffer(state, best.id)
-  }
+  // 5. (deleted — offers seat themselves; no manual seating)
 
   // 6. suppress missions about to tick over — but only if no suppressor is already
   //    inbound, otherwise the bot re-buys every tick during the 3-tick travel (finding 2).
@@ -114,15 +105,12 @@ export function runMissionScenario(squadSize: 1 | 2, runs: number): ScenarioStat
   const out: ScenarioStats = { runs, success: 0, fail: 0, deaths: 0, anyDeath: 0 }
   for (let seed = 1; seed <= runs; seed++) {
     const s = newRun(seed) // two fresh rank-1 mercs, random affinities
-    // silence the offer pump: the far-future timers never fire during the mission
-    s.door = null
-    s.queue = []
-    s.timers = { job1: CYCLE_LENGTH * 10, candidate: CYCLE_LENGTH * 10 }
-    // a 1★ job with a seed-dependent random environment
+    s.seated = []
+    s.nextOfferAt = CYCLE_LENGTH * 10 // the pump never arrives during the mission
     const rng = createRng(seed * 7919)
     const offer = generateJob(s, rng, 1)
-    s.door = offer
     offer.expiresAt = CYCLE_LENGTH
+    s.seated.push(offer)
     const squad = s.mercs.slice(0, squadSize).map(m => m.id)
     const missionId = dispatch(s, offer.id, squad)
     while (s.missions.some(m => m.id === missionId) && s.status === 'running') {
@@ -148,10 +136,10 @@ export interface OfferMix {
   bySource: Record<string, number>
   jobsTotal: number
   jobShare: Record<string, number> // per job tier, fraction of all job offers
-  jobsPer100: number               // job offers reaching the door per 100 ticks
+  jobsPer100: number               // job offers reaching a seat per 100 ticks
 }
 
-/** Freeze reputation at `rep`, reject every door offer the tick it appears,
+/** Freeze reputation at `rep`, reject every seated offer the tick it appears,
  *  and count what the pump delivers. Multiple seeds, `ticks` ticks each. */
 export function measureOfferMix(rep: number, ticks = 1400, seeds = 10): OfferMix {
   const bySource: Record<string, number> = {}
@@ -159,14 +147,13 @@ export function measureOfferMix(rep: number, ticks = 1400, seeds = 10): OfferMix
     const s = newRun(seed)
     s.reputation = rep
     s.mercs = []
-    if (s.door) rejectOffer(s, s.door.id) // drop the opening offer; count from a clean pump
-    s.queue = []
-    s.timers = {}
+    s.seated = []      // drop the opening offer; count from a clean pump
+    s.nextOfferAt = 0
     for (let i = 0; i < ticks && s.status === 'running'; i++) {
       tick(s)
-      if (s.door) {
-        bySource[s.door.source] = (bySource[s.door.source] ?? 0) + 1
-        rejectOffer(s, s.door.id)
+      for (const o of [...s.seated]) {
+        bySource[o.source] = (bySource[o.source] ?? 0) + 1
+        rejectOffer(s, o.id) // free the seat so the next offer can arrive
       }
     }
   }

@@ -25,9 +25,9 @@ export type TimerKey = 'job1' | 'job2' | 'job3' | 'job4' | 'job5' | 'candidate'
 export interface Offer {
   id: number
   kind: 'job' | 'candidate'
-  source: TimerKey // which timer emitted this; its credit is spent while the offer is in flight
-  postedAt: number // tick the offer reached the door; 0 while queued
-  expiresAt: number // tick at which it auto-rejects; 0 while queued (ignored while seated)
+  source: TimerKey // which timer/tier this offer represents; used for the offer-mix harness
+  postedAt: number // tick the offer took its seat
+  expiresAt: number // tick at which it auto-rejects (times out) and frees the seat
   job?: JobDetails
   candidate?: Merc
 }
@@ -63,10 +63,8 @@ export interface GameState {
   rosterSlots: number
   waitingSeats: number
   mercs: Merc[]
-  seated: Offer[] // waiting room
-  door: Offer | null // the one visible offer; TTL runs only here
-  queue: Offer[] // hidden FIFO of fired-but-not-yet-shown offers
-  timers: Partial<Record<TimerKey, number>> // key -> tick it next fires; absent = "reschedule me"
+  seated: Offer[] // the waiting room: one offer per seat, capped at waitingSeats
+  nextOfferAt: number // tick the next offer is scheduled to arrive; 0 = reschedule me
   missions: Mission[]
   homebound: Homebound[] // mercs traveling back (withdrawal / mission end)
   bonds: Record<string, number> // pairKey -> missions completed together

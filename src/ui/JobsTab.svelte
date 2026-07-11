@@ -1,12 +1,14 @@
 <script lang="ts">
   import { game, act } from './store.svelte'
-  import { seatOffer, rejectOffer, hire, buySeat, idleMercIds } from '../sim/actions'
+  import { rejectOffer, hire, buySeat, idleMercIds } from '../sim/actions'
   import { project } from '../sim/projection'
-  import { SEAT_PRICE, MAX_SEATS } from '../sim/balance'
+  import { SEAT_PRICES, MAX_SEATS, STARTING_SEATS } from '../sim/balance'
   import type { Offer } from '../sim/types'
   import DispatchSheet from './DispatchSheet.svelte'
 
   let dispatching: Offer | null = $state(null)
+
+  const seatPrice = $derived(SEAT_PRICES[game.state.waitingSeats - STARTING_SEATS] ?? 0)
 
   function ttl(offer: Offer): number {
     return Math.max(0, offer.expiresAt - game.state.tick)
@@ -31,26 +33,15 @@
 <section>
   <h3 class="dim">waiting room ({game.state.seated.length}/{game.state.waitingSeats})</h3>
   {#each game.state.seated as offer (offer.id)}
-    {@render offerCard(offer, true)}
+    {@render offerCard(offer)}
   {/each}
   {#if game.state.seated.length === 0}
-    <p class="dim">empty seats</p>
+    <p class="dim">no offers waiting — a free seat draws the next one</p>
   {/if}
   {#if game.state.waitingSeats < MAX_SEATS}
-    <button class="ghost" disabled={game.state.cash < SEAT_PRICE} onclick={() => act(() => buySeat(game.state))}>
-      add a seat — {SEAT_PRICE}cr
+    <button class="ghost" disabled={game.state.cash < seatPrice} onclick={() => act(() => buySeat(game.state))}>
+      add a seat — {seatPrice}cr
     </button>
-  {/if}
-</section>
-
-<section>
-  <h3 class="dim">at the door</h3>
-  {#if game.state.door}
-    {#key game.state.door.id}
-      {@render offerCard(game.state.door, false)}
-    {/key}
-  {:else}
-    <p class="dim">nobody at the door — they'll come</p>
   {/if}
 </section>
 
@@ -58,7 +49,7 @@
   <DispatchSheet offer={dispatching} onclose={() => (dispatching = null)} />
 {/if}
 
-{#snippet offerCard(offer: Offer, seated: boolean)}
+{#snippet offerCard(offer: Offer)}
   <div class="card">
     {#if offer.kind === 'job'}
       <div class="row">
@@ -73,10 +64,8 @@
       </div>
       <div class="row dim"><span>hire for {offer.candidate!.hirePrice}cr</span></div>
     {/if}
-    {#if !seated}
-      <div class="bar"><div style="width:{ttlPct(offer)}%; background:var(--danger)"></div></div>
-      <div class="dim">{ttl(offer)}s before they walk</div>
-    {/if}
+    <div class="bar"><div style="width:{ttlPct(offer)}%; background:var(--danger)"></div></div>
+    <div class="dim">{ttl(offer)}s before they walk</div>
     <div class="row">
       {#if offer.kind === 'job'}
         <button class="action" onclick={() => (dispatching = offer)}>accept</button>
@@ -86,11 +75,6 @@
           disabled={game.state.mercs.length >= game.state.rosterSlots || game.state.cash < offer.candidate!.hirePrice}
           onclick={() => act(() => hire(game.state, offer.id))}
         >hire</button>
-      {/if}
-      {#if !seated}
-        <button class="ghost" disabled={game.state.seated.length >= game.state.waitingSeats} onclick={() => act(() => seatOffer(game.state, offer.id))}>
-          take a seat
-        </button>
       {/if}
       <button class="ghost" onclick={() => act(() => rejectOffer(game.state, offer.id))}>reject</button>
     </div>

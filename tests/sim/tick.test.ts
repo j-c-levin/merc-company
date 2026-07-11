@@ -70,9 +70,10 @@ describe('mission tick — the spec worked example', () => {
 
   it('overflows at the cap: level +1, bar keeps remainder, someone takes damage', () => {
     const { s, m, a, b, c } = setup()
-    for (let i = 0; i < 6; i++) tick(s) // 18 ≥ cap → wraps to 0
+    const ticks = Math.ceil(THREAT_CAP / 3) // 3/tick minimum threat crosses the cap once
+    for (let i = 0; i < ticks; i++) tick(s)
     expect(m.threatLevel).toBe(1)
-    expect(m.threatBar).toBe(18 - THREAT_CAP)
+    expect(m.threatBar).toBe(ticks * 3 - THREAT_CAP)
     const totalHp = a.hp + b.hp + c.hp
     expect(totalHp).toBeLessThan(3 * 99) // consequence dealt ≥1 damage
   })
