@@ -2,9 +2,9 @@ export const SCHEMA_VERSION = 3
 export const CYCLE_LENGTH = 1500
 export const LOAN = 5000
 export const STARTING_CASH = 500
-export const WORK_PER_RATING = 30       // design anchor
+export const WORK_PER_RATING = 39       // design anchor: 30% longer missions
 export const THREAT_BASE_PER_RATING = 3 // design anchor
-export const THREAT_CAP = 18            // design anchor
+export const THREAT_CAP = 23            // design anchor: scaled ~×1.3 with work so per-mission consequence count holds
 export const CONSEQUENCE_SPREAD = 2
 export const HP_BASE = 15
 export const HP_PER_RANK = 5
@@ -27,7 +27,7 @@ export const BOND_THRESHOLDS = [2, 5, 9] // missions together for levels 1/2/3
 export const HEAL_INTERVAL = 5          // idle mercs heal 1 hp every N ticks
 export const MEDBAY_PER_HP = 10         // instant heal price per missing hp
 export const REP_PER_TIER = 4           // rep needed per extra offer/candidate tier
-export const DANGER_THREAT = 12         // threatBar at/above this counts as a "hot" mission in the UI
+export const DANGER_THREAT = 15         // threatBar at/above this counts as a "hot" mission in the UI
 
 // ── offer pump ────────────────────────────────────────────────────────────
 // Per-tier arrival timers. `atUnlock` is the interval (ticks) at unlockRep;
